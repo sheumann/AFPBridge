@@ -33,17 +33,14 @@ static DSIRequestHeader attentionReplyRec = {
 void FlagFatalError(Session *sess, Word errorCode) {
     sess->dsiStatus = error;
     if (errorCode) {
-        if (sess->commandStatus == commandPending) {
+        if (sess->commandPending) {
             sess->spCommandRec->result = errorCode;
         }
     } else {
         // TODO deduce error code from Marinetti errors
     }
-    // TODO close TCP connection, anything else?
-
-	// call completion routing if needed
-
-    sess->commandStatus = commandDone;
+    
+    CompleteCommand(sess);
 }
 
 
@@ -94,7 +91,7 @@ top:
         if (sess->reply.totalDataLength != 0) {
             dataLength = ntohl(sess->reply.totalDataLength);
             
-            if (sess->commandStatus == commandPending
+            if (sess->commandPending
                 && sess->reply.flags == DSI_REPLY
                 && sess->reply.requestID == sess->request.requestID
                 && sess->reply.command == sess->request.command) 
@@ -135,7 +132,7 @@ top:
     // If we're here, we got a full message.
     
     // Handle a command that is now done, if any.
-    if (sess->commandStatus == commandPending
+    if (sess->commandPending
         && sess->reply.flags == DSI_REPLY
         && sess->reply.requestID == sess->request.requestID
         && sess->reply.command == sess->request.command)
@@ -154,7 +151,6 @@ top:
     
         // TODO correct logic for all cases
         FinishASPCommand(sess);
-        sess->commandStatus = commandDone;
         return;
     }
     //Handle a request from the server

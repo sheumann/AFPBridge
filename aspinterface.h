@@ -14,7 +14,8 @@
 
 extern Session sessionTbl[MAX_SESSIONS];
 
-void FinishASPCommand(Session *sess);
 void DispatchASPCommand(SPCommandRec *commandRec);
+void FinishASPCommand(Session *sess);
+void CompleteCommand(Session *sess);
 
 #endif

@@ -70,7 +70,16 @@ BOOLEAN StartTCPConnection(Session *sess) {
 }
 
 void EndTCPConnection(Session *sess) {
+    srBuff mySRBuff;
+
     if (sess->tcpLoggedIn) {
+        do {
+            TCPIPPoll();
+        } while (TCPIPStatusTCP(sess->ipid, &mySRBuff) == tcperrOK
+                 && !toolerror()
+                 && mySRBuff.srState == TCPSESTABLISHED
+                 && mySRBuff.srSndQueued > 0);
+
         TCPIPAbortTCP(sess->ipid);
         TCPIPLogout(sess->ipid);
         sess->tcpLoggedIn = FALSE;

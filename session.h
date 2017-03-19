@@ -21,12 +21,6 @@ typedef enum DSISessionStatus {
     error
 } DSISessionStatus;
 
-typedef enum CommandStatus {
-    noCommand = 0,
-    commandPending,
-    commandDone
-} CommandStatus;
-
 typedef struct Session {
     /* Marinetti TCP connection status */
     Word ipid;
@@ -35,7 +29,7 @@ typedef struct Session {
     DSISessionStatus dsiStatus;
     
     /* Information on command currently being processed, if any. */
-    CommandStatus commandStatus;
+    Boolean commandPending;
     SPCommandRec *spCommandRec;
     DSIRequestHeader request;
     

@@ -15,7 +15,6 @@ void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec);
 void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec);
 void DoSPCommand(Session *sess, ASPCommandRec *commandRec);
 void DoSPWrite(Session *sess, ASPWriteRec *commandRec);
-void CompleteCommand(Session *sess);
 
 
 Session sessionTbl[MAX_SESSIONS];
@@ -59,12 +58,12 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
     // TODO properly handle all cases of getting a command while
     // one is in progress
     if (commandRec->command != aspCloseSessionCommand) {
-        if (sess->commandStatus != noCommand) {
+        if (sess->commandPending) {
             commandRec->result = aspSessNumErr;
             CompleteCommand(sess);
             return;
         }
-        sess->commandStatus = commandPending;
+        sess->commandPending = TRUE;
     }
     
     switch (commandRec->command) {
@@ -85,19 +84,19 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
         break;
     }
     
-    if (commandRec->async & AT_ASYNC) {
-        if (sess->commandStatus == commandDone) {
-            CompleteCommand(sess);
-        } else {
-            commandRec->result = aspBusyErr;  // indicate call in process
-        }
+    if ((commandRec->async & AT_ASYNC) && sess->commandPending) {
+        commandRec->result = aspBusyErr;  // indicate call in process
         return;
     }
     
     // if we're here, the call is synchronous -- we must complete it
     
-    while (sess->commandStatus != commandDone) {
-        PollForData(sess);
+    if (commandRec->command == aspCloseSessionCommand) {
+        FinishASPCommand(sess);
+    } else {
+        while (sess->commandPending) {
+            PollForData(sess);
+        }
     }
 }
 
@@ -114,11 +113,27 @@ void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec) {
 }
 
 void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec) {
-    // TODO
+    sess->request.flags = DSI_REQUEST;
+    sess->request.command = DSIOpenSession;
+    sess->request.requestID = htons(sess->nextRequestID++);
+    sess->request.writeOffset = 0;
+    sess->request.totalDataLength = 0;
+    sess->replyBuf = NULL;
+    sess->replyBufLen = 0;
+    
+    SendDSIMessage(sess, &sess->request, NULL);
 }
 
 void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec) {
-    // TODO
+    sess->request.flags = DSI_REQUEST;
+    sess->request.command = DSICloseSession;
+    sess->request.requestID = htons(sess->nextRequestID++);
+    sess->request.writeOffset = 0;
+    sess->request.totalDataLength = 0;
+    sess->replyBuf = NULL;
+    sess->replyBufLen = 0;
+    
+    SendDSIMessage(sess, &sess->request, NULL);
 }
 
 void DoSPCommand(Session *sess, ASPCommandRec *commandRec) {
@@ -146,11 +161,10 @@ void FinishASPCommand(Session *sess) {
         ((ASPGetStatusRec*)(sess->spCommandRec))->dataLength = dataLength;
         break;
     case aspOpenSessionCommand:
-        // TODO set session ref num
+        ((ASPOpenSessionRec*)(sess->spCommandRec))->refNum = 
+            (sess - &sessionTbl[0]) + SESSION_NUM_START;
         break;
     case aspCloseSessionCommand:
-        ((ASPCloseSessionRec*)(sess->spCommandRec))->refNum = 
-            (sess - &sessionTbl[0]) + SESSION_NUM_START;
         break;
     case aspCommandCommand:
         ((ASPCommandRec*)(sess->spCommandRec))->cmdResult =
@@ -175,5 +189,11 @@ void CompleteCommand(Session *sess) {
     
     // TODO call completion routine
     
-    memset(sess, 0, sizeof(*sess));
+    if (sess->spCommandRec->command == aspGetStatusCommand 
+        || sess->spCommandRec->command == aspCloseSessionCommand)
+    {
+        memset(sess, 0, sizeof(*sess));
+    } else {
+        sess->commandPending = FALSE;
+    }
 }
