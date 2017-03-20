@@ -101,15 +101,16 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
 }
 
 void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec) {
+    static const Word kFPGetSrvrInfo = 15;
     sess->request.flags = DSI_REQUEST;
     sess->request.command = DSIGetStatus;
     sess->request.requestID = htons(sess->nextRequestID++);
     sess->request.writeOffset = 0;
-    sess->request.totalDataLength = 0;
+    sess->request.totalDataLength = htonl(2);
     sess->replyBuf = (void*)commandRec->bufferAddr;
     sess->replyBufLen = commandRec->bufferLength;
     
-    SendDSIMessage(sess, &sess->request, NULL);
+    SendDSIMessage(sess, &sess->request, &kFPGetSrvrInfo);
 }
 
 void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec) {
