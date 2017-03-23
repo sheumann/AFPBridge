@@ -8,6 +8,7 @@
 
 ASPGetStatusRec getStatusRec;
 ASPOpenSessionRec openSessionRec;
+ASPCommandRec commandRec;
 ASPCloseSessionRec closeSessionRec;
 Byte replyBuffer[1024];
 
@@ -80,6 +81,21 @@ int main(int argc, char **argv)
     printf("result code = %04x\n", openSessionRec.result);
     if (openSessionRec.result)
         goto error;
+
+    commandRec.async = AT_SYNC;
+    commandRec.command = aspCommandCommand;
+    commandRec.completionPtr = 0;
+    commandRec.refNum = openSessionRec.refNum;
+    // FIXME this sends meaningless garbage, not a real AFP request
+    commandRec.cmdBlkLength = 10;
+    commandRec.cmdBlkAddr = (LongWord)&openSessionRec;
+    commandRec.replyBufferLen = sizeof(replyBuffer);
+    commandRec.replyBufferAddr = (LongWord)&replyBuffer;
+    
+    printf("Sending command...\n");
+    DispatchASPCommand((SPCommandRec *)&commandRec);
+    printf("result code = %04x, command result = %08lx\n", 
+           commandRec.result, commandRec.cmdResult);
 
     closeSessionRec.async = AT_SYNC;
     closeSessionRec.command = aspCloseSessionCommand;

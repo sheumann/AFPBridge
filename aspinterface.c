@@ -138,7 +138,15 @@ void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec) {
 }
 
 void DoSPCommand(Session *sess, ASPCommandRec *commandRec) {
-    // TODO
+    sess->request.flags = DSI_REQUEST;
+    sess->request.command = DSICommand;
+    sess->request.requestID = htons(sess->nextRequestID++);
+    sess->request.writeOffset = 0;
+    sess->request.totalDataLength = htonl(commandRec->cmdBlkLength);
+    sess->replyBuf = (void*)commandRec->replyBufferAddr;
+    sess->replyBufLen = commandRec->replyBufferLen;
+    
+    SendDSIMessage(sess, &sess->request, (void*)commandRec->cmdBlkAddr);
 }
 
 void DoSPWrite(Session *sess, ASPWriteRec *commandRec) {
@@ -154,7 +162,7 @@ void FinishASPCommand(Session *sess) {
         // The IIgs ASP interfaces can't represent lengths over 64k.
         // This should be detected as an error earlier, but let's make sure.
         sess->spCommandRec->result = aspSizeErr;
-        return;
+        goto complete;
     }
 
     switch(sess->spCommandRec->command) {
@@ -176,7 +184,8 @@ void FinishASPCommand(Session *sess) {
         // TODO
         break;
     }
-    
+
+complete:
     CompleteCommand(sess);
 }
 
@@ -196,5 +205,6 @@ void CompleteCommand(Session *sess) {
         memset(sess, 0, sizeof(*sess));
     } else {
         sess->commandPending = FALSE;
+        InitReadTCP(sess, DSI_HEADER_SIZE, &sess->reply);
     }
 }

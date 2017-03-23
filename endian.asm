@@ -15,7 +15,7 @@ ntohs	entry
 
 htonl	start
 ntohl	entry
-	lda 	4,s
+	lda	4,s
 	xba
 	tax
 	lda	6,s
