@@ -10,11 +10,14 @@
 #include "endian.h"
 #include "readtcp.h"
 
-void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec);
-void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec);
-void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec);
-void DoSPCommand(Session *sess, ASPCommandRec *commandRec);
-void DoSPWrite(Session *sess, ASPWriteRec *commandRec);
+static void CompleteCommand(Session *sess, Word result);
+static void EndSession(Session *sess, Boolean callAttnRoutine);
+
+static void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec);
+static void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec);
+static void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec);
+static void DoSPCommand(Session *sess, ASPCommandRec *commandRec);
+static void DoSPWrite(Session *sess, ASPWriteRec *commandRec);
 
 
 Session sessionTbl[MAX_SESSIONS];
@@ -31,16 +34,14 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
                 break;
         }
         if (i == MAX_SESSIONS) {
-            commandRec->result = aspTooManySessions;
-            CompleteCommand(sess);
+            CompleteCommand(sess, aspTooManySessions);
             return;
         }
         sess = &sessionTbl[i];
         sess->spCommandRec = commandRec;
         
         if (!StartTCPConnection(sess)) {
-            // Error code was set in TCPIPConnect
-            CompleteCommand(sess);
+            FlagFatalError(sess, 0);
             return;
         }
         sess->dsiStatus = awaitingHeader;
@@ -59,8 +60,7 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
     // one is in progress
     if (commandRec->command != aspCloseSessionCommand) {
         if (sess->commandPending) {
-            commandRec->result = aspSessNumErr;
-            CompleteCommand(sess);
+            CompleteCommand(sess, aspSessNumErr);
             return;
         }
         sess->commandPending = TRUE;
@@ -100,7 +100,7 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
     }
 }
 
-void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec) {
+static void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec) {
     static const Word kFPGetSrvrInfo = 15;
     sess->request.flags = DSI_REQUEST;
     sess->request.command = DSIGetStatus;
@@ -110,10 +110,10 @@ void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec) {
     sess->replyBuf = (void*)commandRec->bufferAddr;
     sess->replyBufLen = commandRec->bufferLength;
     
-    SendDSIMessage(sess, &sess->request, &kFPGetSrvrInfo);
+    SendDSIMessage(sess, &sess->request, &kFPGetSrvrInfo, NULL);
 }
 
-void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec) {
+static void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec) {
     sess->request.flags = DSI_REQUEST;
     sess->request.command = DSIOpenSession;
     sess->request.requestID = htons(sess->nextRequestID++);
@@ -122,10 +122,10 @@ void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec) {
     sess->replyBuf = NULL;
     sess->replyBufLen = 0;
     
-    SendDSIMessage(sess, &sess->request, NULL);
+    SendDSIMessage(sess, &sess->request, NULL, NULL);
 }
 
-void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec) {
+static void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec) {
     sess->request.flags = DSI_REQUEST;
     sess->request.command = DSICloseSession;
     sess->request.requestID = htons(sess->nextRequestID++);
@@ -134,10 +134,10 @@ void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec) {
     sess->replyBuf = NULL;
     sess->replyBufLen = 0;
     
-    SendDSIMessage(sess, &sess->request, NULL);
+    SendDSIMessage(sess, &sess->request, NULL, NULL);
 }
 
-void DoSPCommand(Session *sess, ASPCommandRec *commandRec) {
+static void DoSPCommand(Session *sess, ASPCommandRec *commandRec) {
     sess->request.flags = DSI_REQUEST;
     sess->request.command = DSICommand;
     sess->request.requestID = htons(sess->nextRequestID++);
@@ -146,12 +146,38 @@ void DoSPCommand(Session *sess, ASPCommandRec *commandRec) {
     sess->replyBuf = (void*)commandRec->replyBufferAddr;
     sess->replyBufLen = commandRec->replyBufferLen;
     
-    SendDSIMessage(sess, &sess->request, (void*)commandRec->cmdBlkAddr);
+    SendDSIMessage(sess, &sess->request, (void*)commandRec->cmdBlkAddr, NULL);
 }
 
-void DoSPWrite(Session *sess, ASPWriteRec *commandRec) {
-    // TODO
+static void DoSPWrite(Session *sess, ASPWriteRec *commandRec) {
+    sess->request.flags = DSI_REQUEST;
+    sess->request.command = DSIWrite;
+    sess->request.requestID = htons(sess->nextRequestID++);
+    sess->request.writeOffset = htonl(commandRec->cmdBlkLength);
+    sess->request.totalDataLength =
+        htonl(commandRec->cmdBlkLength + commandRec->writeDataLength);
+    sess->replyBuf = (void*)commandRec->replyBufferAddr;
+    sess->replyBufLen = commandRec->replyBufferLen;
+    
+    SendDSIMessage(sess, &sess->request, (void*)commandRec->cmdBlkAddr,
+                   (void*)commandRec->writeDataAddr);
 }
+
+
+void FlagFatalError(Session *sess, Word errorCode) {
+    sess->dsiStatus = error;
+    if (errorCode == 0) {
+        // TODO deduce better error code from Marinetti errors?
+        errorCode = aspNetworkErr;
+    }
+
+    if (sess->commandPending) {
+        CompleteCommand(sess, errorCode);
+    }
+    
+    EndSession(sess, TRUE);
+}
+
 
 // Fill in any necessary data in the ASP command rec for a successful return
 void FinishASPCommand(Session *sess) {
@@ -181,30 +207,44 @@ void FinishASPCommand(Session *sess) {
         ((ASPCommandRec*)(sess->spCommandRec))->replyLength = dataLength;
         break;
     case aspWriteCommand:
-        // TODO
+        ((ASPWriteRec*)(sess->spCommandRec))->cmdResult =
+            sess->reply.errorCode;
+        ((ASPWriteRec*)(sess->spCommandRec))->replyLength = dataLength;
+        ((ASPWriteRec*)(sess->spCommandRec))->writtenLength =
+            ((ASPWriteRec*)(sess->spCommandRec))->writeDataLength;
         break;
     }
 
 complete:
-    CompleteCommand(sess);
+    CompleteCommand(sess, 0);
 }
 
 /* Actions to complete a command, whether successful or not */
-void CompleteCommand(Session *sess) {
+static void CompleteCommand(Session *sess, Word result) {
+    SPCommandRec *commandRec;
+
+    commandRec = sess->spCommandRec;
+
     if (sess->spCommandRec->command == aspGetStatusCommand 
         || sess->spCommandRec->command == aspCloseSessionCommand)
     {
-        EndTCPConnection(sess);
-    }
-    
-    // TODO call completion routine
-    
-    if (sess->spCommandRec->command == aspGetStatusCommand 
-        || sess->spCommandRec->command == aspCloseSessionCommand)
-    {
-        memset(sess, 0, sizeof(*sess));
+        EndSession(sess, FALSE);
     } else {
         sess->commandPending = FALSE;
         InitReadTCP(sess, DSI_HEADER_SIZE, &sess->reply);
     }
+    
+    commandRec->result = result;
+    
+    // TODO call completion routine
+}
+
+
+static void EndSession(Session *sess, Boolean callAttnRoutine) {
+    if (callAttnRoutine) {
+        // TODO call the attention routine to report end of session
+    }
+    
+    EndTCPConnection(sess);
+    memset(sess, 0, sizeof(*sess));
 }

@@ -30,43 +30,40 @@ static DSIRequestHeader attentionReplyRec = {
     0               /* reserved */
 };
 
-void FlagFatalError(Session *sess, Word errorCode) {
-    sess->dsiStatus = error;
-    if (errorCode) {
-        if (sess->commandPending) {
-            sess->spCommandRec->result = errorCode;
-        }
-    } else {
-        // TODO deduce error code from Marinetti errors
-    }
-    
-    CompleteCommand(sess);
-}
 
-
-void SendDSIMessage(Session *sess, DSIRequestHeader *header, void *payload) {
-    Boolean hasData;
-    
-    hasData = header->totalDataLength != 0;
+void SendDSIMessage(Session *sess, DSIRequestHeader *header, void *payload,
+                    void *extraPayload) {
+    LongWord cmdLen;
+    LongWord extraLen;
 
     sess->tcperr = TCPIPWriteTCP(sess->ipid, (void*)header,
                                  DSI_HEADER_SIZE,
-                                 !hasData, FALSE);
+                                 !header->totalDataLength, FALSE);
     sess->toolerr = toolerror();
     if (sess->tcperr || sess->toolerr) {
         FlagFatalError(sess, 0);
         return;
     }
     
-    if (hasData) {
-        sess->tcperr = TCPIPWriteTCP(sess->ipid, payload,
-                                     ntohl(header->totalDataLength),
-                                     TRUE, FALSE);
+    if (header->writeOffset) {
+        cmdLen = ntohl(header->writeOffset);
+        extraLen = ntohl(header->totalDataLength) - cmdLen;
+    } else {
+        cmdLen = ntohl(header->totalDataLength);
+        extraLen = 0;
+    }
+    while (cmdLen) {
+        sess->tcperr = TCPIPWriteTCP(sess->ipid, payload, cmdLen,
+                                     !extraLen, FALSE);
         sess->toolerr = toolerror();
         if (sess->tcperr || sess->toolerr) {
             FlagFatalError(sess, 0);
             return;
         }
+
+        cmdLen = extraLen;
+        payload = extraPayload;
+        extraLen = 0;
     }
 }
 
@@ -158,13 +155,13 @@ top:
     {
         if (sess->reply.command == DSIAttention) {
             attentionReplyRec.requestID = sess->reply.requestID;
-            SendDSIMessage(sess, &attentionReplyRec, NULL);
+            SendDSIMessage(sess, &attentionReplyRec, NULL, NULL);
             //TODO call attention routine.
         } else if (sess->reply.command == DSICloseSession) {
             // TODO handle close
         } else if (sess->reply.command == DSITickle) {
             tickleRequestRec.requestID = htons(sess->nextRequestID++);
-            SendDSIMessage(sess, &tickleRequestRec, NULL);
+            SendDSIMessage(sess, &tickleRequestRec, NULL, NULL);
         } else {
             FlagFatalError(sess, aspNetworkErr);
             return;

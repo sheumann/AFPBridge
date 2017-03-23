@@ -5,12 +5,31 @@
 #include <orca.h>
 #include "aspinterface.h"
 #include "atipmapping.h"
+#include "endian.h"
 
 ASPGetStatusRec getStatusRec;
 ASPOpenSessionRec openSessionRec;
 ASPCommandRec commandRec;
+ASPWriteRec writeRec;
 ASPCloseSessionRec closeSessionRec;
 Byte replyBuffer[1024];
+
+struct FPFlushRec {
+    Byte CommandCode;
+    Byte Pad;
+    Word VolumeID;
+} fpFlushRec;
+
+struct FPWriteRec {
+    Byte CommandCode;
+    Byte Flag;
+    Word OForkRefNum;
+    LongWord Offset;
+    LongWord ReqCount;
+} fpWriteRec;
+
+#define kFPFlush 10
+#define kFPWrite 33
 
 int main(int argc, char **argv)
 {
@@ -81,14 +100,32 @@ int main(int argc, char **argv)
     printf("result code = %04x\n", openSessionRec.result);
     if (openSessionRec.result)
         goto error;
+    
+    writeRec.async = AT_SYNC;
+    writeRec.command = aspWriteCommand;
+    writeRec.completionPtr = 0;
+    writeRec.refNum = openSessionRec.refNum;
+    writeRec.cmdBlkLength = sizeof(fpWriteRec);
+    writeRec.cmdBlkAddr = (LongWord)&fpWriteRec;
+    fpWriteRec.CommandCode = kFPWrite;
+    fpWriteRec.ReqCount = htonl(16);
+    writeRec.writeDataLength = 16;
+    writeRec.writeDataAddr = (LongWord)&openSessionRec;
+    writeRec.replyBufferLen = sizeof(replyBuffer);
+    writeRec.replyBufferAddr = (LongWord)&replyBuffer;
+
+    printf("Sending write...\n");
+    DispatchASPCommand((SPCommandRec *)&writeRec);
+    printf("result code = %04x, write result = %08lx\n", 
+           writeRec.result, writeRec.cmdResult);
 
     commandRec.async = AT_SYNC;
     commandRec.command = aspCommandCommand;
     commandRec.completionPtr = 0;
     commandRec.refNum = openSessionRec.refNum;
-    // FIXME this sends meaningless garbage, not a real AFP request
-    commandRec.cmdBlkLength = 10;
-    commandRec.cmdBlkAddr = (LongWord)&openSessionRec;
+    commandRec.cmdBlkLength = sizeof(fpFlushRec);
+    commandRec.cmdBlkAddr = (LongWord)&fpFlushRec;
+    fpFlushRec.CommandCode = kFPFlush;
     commandRec.replyBufferLen = sizeof(replyBuffer);
     commandRec.replyBufferAddr = (LongWord)&replyBuffer;
     
