@@ -6,8 +6,13 @@ DSITEST_PROG = dsitest
 AFPMOUNTER_OBJS = afpmounter.o callat.o endian.o
 AFPMOUNTER_PROG = afpmounter
 
-.PHONY: default
-default: $(DSITEST_PROG) $(AFPMOUNTER_PROG)
+DUMPCMDTBL_OBJS = dumpcmdtbl.o asmglue.o
+DUMPCMDTBL_PROG = dumpcmdtbl
+
+PROGS = $(DSITEST_PROG) $(AFPMOUNTER_PROG) $(DUMPCMDTBL_PROG)
+
+.PHONY: $(PROGS)
+default: $(PROGS)
 
 $(DSITEST_PROG): $(DSITEST_OBJS)
 	occ $(CFLAGS) -o $@ $(DSITEST_OBJS)
@@ -15,12 +20,12 @@ $(DSITEST_PROG): $(DSITEST_OBJS)
 $(AFPMOUNTER_PROG): $(AFPMOUNTER_OBJS)
 	occ $(CFLAGS) -o $@ $(AFPMOUNTER_OBJS)
 
-endian.o: endian.asm
-	occ $(CFLAGS) -c $<
+$(DUMPCMDTBL_PROG): $(DUMPCMDTBL_OBJS)
+	occ $(CFLAGS) -o $@ $(DUMPCMDTBL_OBJS)
 
-callat.o: callat.asm
-	occ $(CFLAGS) -c $<
+%.macros: %.asm
+	macgen $< $@ /lang/orca/Libraries/ORCAInclude/m16.*
 
 .PHONY: clean
 clean:
-	$(RM) $(DSITEST_OBJS) $(DSITEST_PROG) $(AFPMOUNTER_PROG) $(AFPMOUNTER_OBJS) > .null
+	$(RM) $(PROGS) *.o *.root > .null
