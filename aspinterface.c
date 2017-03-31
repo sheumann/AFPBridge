@@ -9,6 +9,7 @@
 #include "tcpconnection.h"
 #include "endian.h"
 #include "readtcp.h"
+#include "asmglue.h"
 
 static void CompleteCommand(Session *sess, Word result);
 static void EndSession(Session *sess, Boolean callAttnRoutine);
@@ -22,9 +23,13 @@ static void DoSPWrite(Session *sess, ASPWriteRec *commandRec);
 
 Session sessionTbl[MAX_SESSIONS];
 
+#pragma databank 1
 void DispatchASPCommand(SPCommandRec *commandRec) {
     Session *sess;
     unsigned int i;
+    Word stateReg;
+    
+    stateReg = ForceRomIn();
 
     if (commandRec->command == aspGetStatusCommand 
         || commandRec->command==aspOpenSessionCommand)
@@ -35,21 +40,22 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
         }
         if (i == MAX_SESSIONS) {
             CompleteCommand(sess, aspTooManySessions);
-            return;
+            goto ret;
         }
         sess = &sessionTbl[i];
         sess->spCommandRec = commandRec;
         
         if (!StartTCPConnection(sess)) {
             FlagFatalError(sess, 0);
-            return;
+            goto ret;
         }
         sess->dsiStatus = awaitingHeader;
         InitReadTCP(sess, DSI_HEADER_SIZE, &sess->reply);
     } else {
         if (commandRec->refNum < SESSION_NUM_START) {
             // TODO call original AppleTalk routine (or do it earlier)
-            return;
+            commandRec->result = atInvalidCmdErr;
+            goto ret;
         }
         i = commandRec->refNum - SESSION_NUM_START;
         sess = &sessionTbl[i];
@@ -61,7 +67,7 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
     if (commandRec->command != aspCloseSessionCommand) {
         if (sess->commandPending) {
             CompleteCommand(sess, aspSessNumErr);
-            return;
+            goto ret;
         }
         sess->commandPending = TRUE;
     }
@@ -86,7 +92,7 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
     
     if ((commandRec->async & AT_ASYNC) && sess->commandPending) {
         commandRec->result = aspBusyErr;  // indicate call in process
-        return;
+        goto ret;
     }
     
     // if we're here, the call is synchronous -- we must complete it
@@ -98,7 +104,11 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
             PollForData(sess);
         }
     }
+
+ret:    
+    RestoreStateReg(stateReg);
 }
+#pragma databank 0
 
 static void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec) {
     static const Word kFPGetSrvrInfo = 15;
@@ -143,10 +153,13 @@ static void DoSPCommand(Session *sess, ASPCommandRec *commandRec) {
     sess->request.requestID = htons(sess->nextRequestID++);
     sess->request.writeOffset = 0;
     sess->request.totalDataLength = htonl(commandRec->cmdBlkLength);
-    sess->replyBuf = (void*)commandRec->replyBufferAddr;
+    sess->replyBuf = (void*)(commandRec->replyBufferAddr & 0x00FFFFFF);
     sess->replyBufLen = commandRec->replyBufferLen;
     
-    SendDSIMessage(sess, &sess->request, (void*)commandRec->cmdBlkAddr, NULL);
+    /* Mask off high byte of addresses because PFI (at least) may
+     * put junk in them, and this can cause Marinetti errors. */
+    SendDSIMessage(sess, &sess->request,
+                   (void*)(commandRec->cmdBlkAddr & 0x00FFFFFF), NULL);
 }
 
 static void DoSPWrite(Session *sess, ASPWriteRec *commandRec) {
@@ -156,11 +169,12 @@ static void DoSPWrite(Session *sess, ASPWriteRec *commandRec) {
     sess->request.writeOffset = htonl(commandRec->cmdBlkLength);
     sess->request.totalDataLength =
         htonl(commandRec->cmdBlkLength + commandRec->writeDataLength);
-    sess->replyBuf = (void*)commandRec->replyBufferAddr;
+    sess->replyBuf = (void*)(commandRec->replyBufferAddr & 0x00FFFFFF);
     sess->replyBufLen = commandRec->replyBufferLen;
     
-    SendDSIMessage(sess, &sess->request, (void*)commandRec->cmdBlkAddr,
-                   (void*)commandRec->writeDataAddr);
+    SendDSIMessage(sess, &sess->request,
+                   (void*)(commandRec->cmdBlkAddr & 0x00FFFFFF),
+                   (void*)(commandRec->writeDataAddr & 0x00FFFFFF));
 }
 
 
@@ -231,7 +245,10 @@ static void CompleteCommand(Session *sess, Word result) {
         EndSession(sess, FALSE);
     } else {
         sess->commandPending = FALSE;
-        InitReadTCP(sess, DSI_HEADER_SIZE, &sess->reply);
+        if (sess->dsiStatus != error) {
+            sess->dsiStatus = awaitingHeader;
+            InitReadTCP(sess, DSI_HEADER_SIZE, &sess->reply);
+        }
     }
     
     commandRec->result = result;
@@ -247,4 +264,14 @@ static void EndSession(Session *sess, Boolean callAttnRoutine) {
     
     EndTCPConnection(sess);
     memset(sess, 0, sizeof(*sess));
+}
+
+void PollAllSessions(void) {
+    unsigned int i;
+
+    for (i = 0; i < MAX_SESSIONS; i++) {
+        if (sessionTbl[i].dsiStatus != unused) {
+            PollForData(&sessionTbl[i]);
+        }
+    }
 }

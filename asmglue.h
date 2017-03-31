@@ -4,6 +4,7 @@
 #include <types.h>
 
 extern Word ForceLCBank2(void);
+extern Word ForceRomIn(void);
 extern void RestoreStateReg(Word);
 
 void IncBusyFlag(void) inline(0, 0xE10064);

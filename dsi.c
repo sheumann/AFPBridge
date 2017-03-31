@@ -166,6 +166,9 @@ top:
             FlagFatalError(sess, aspNetworkErr);
             return;
         }
+        
+        sess->dsiStatus = awaitingHeader;
+        InitReadTCP(sess, DSI_HEADER_SIZE, &sess->reply);
     }
     else
     {
