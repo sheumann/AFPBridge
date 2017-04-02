@@ -1,6 +1,8 @@
 #ifndef ATIPMAPPING_H
 #define ATIPMAPPING_H
 
+#include <types.h>
+
 typedef struct ATIPMapping {
     /* AppleTalk address/socket */
     Word networkNumber; /* in network byte order */
