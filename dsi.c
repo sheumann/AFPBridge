@@ -142,12 +142,11 @@ top:
                 // Maybe we should do something with them?
                 FinishASPCommand(sess);
             } else {
-                sess->spCommandRec->result = aspSizeErr;
+                CompleteASPCommand(sess, aspBufErr);
             }
+        } else {
+            FinishASPCommand(sess);
         }
-    
-        // TODO correct logic for all cases
-        FinishASPCommand(sess);
         return;
     }
     //Handle a request from the server
