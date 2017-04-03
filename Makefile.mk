@@ -1,6 +1,6 @@
 CFLAGS = -i -w
 
-DSITEST_OBJS = dsitest.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o
+DSITEST_OBJS = dsitest.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o cmdproc.o
 DSITEST_PROG = dsitest
 
 AFPMOUNTER_OBJS = afpmounter.o callat.o endian.o
@@ -14,7 +14,7 @@ AFPBRIDGE_PROG = afpbridge
 
 PROGS = $(DSITEST_PROG) $(AFPMOUNTER_PROG) $(DUMPCMDTBL_PROG) $(AFPBRIDGE_PROG)
 
-.PHONY: $(PROGS)
+.PHONY: default
 default: $(PROGS)
 
 $(DSITEST_PROG): $(DSITEST_OBJS)

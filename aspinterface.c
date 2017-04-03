@@ -10,6 +10,7 @@
 #include "endian.h"
 #include "readtcp.h"
 #include "asmglue.h"
+#include "cmdproc.h"
 
 static void CompleteCommand(Session *sess, Word result);
 static void EndSession(Session *sess, Boolean callAttnRoutine);
@@ -253,7 +254,9 @@ static void CompleteCommand(Session *sess, Word result) {
     
     commandRec->result = result;
     
-    // TODO call completion routine
+    if ((commandRec->async & AT_ASYNC) && commandRec->completionPtr != NULL) {
+        CallCompletionRoutine((void *)commandRec->completionPtr);
+    }
 }
 
 

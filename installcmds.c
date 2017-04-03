@@ -3,8 +3,8 @@
 #include <types.h>
 #include <AppleTalk.h>
 #include "asmglue.h"
+#include "cmdproc.h"
 
-extern void cmdProc(void);
 extern LongWord completionRtn;
 
 typedef struct NewCmd {
