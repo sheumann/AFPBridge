@@ -11,7 +11,7 @@ int main(void) {
     Boolean loadedTCP = FALSE;
     Boolean startedTCP = FALSE;
     
-    if (!TCPIPStatus()) {
+    if (!TCPIPStatus() || toolerror()) {
         LoadOneTool(54, 0x0300);    /* load Marinetti 3.0+ */
         if (toolerror())
             goto error;
