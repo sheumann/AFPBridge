@@ -68,6 +68,23 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
             commandRec->result = atInvalidCmdErr;
             goto ret;
         }
+        
+        /*
+         * Hack to avoid hangs/crashes related to the AppleShare FST's
+         * asynchronous polling to check if volumes have been modified.
+         * This effectively disables that mechanism (which is the only
+         * real user of asynchronous ASP calls).
+         * 
+         * TODO Identify and fix the underlying issue.
+         */
+        if ((commandRec->async & AT_ASYNC)
+            && commandRec->command == aspCommandCommand)
+        {
+            commandRec->result = atSyncErr;
+            CallCompletionRoutine((void*)commandRec->completionPtr);
+            goto ret;
+        }
+        
         i = commandRec->refNum - SESSION_NUM_START;
         sess = &sessionTbl[i];
         sess->spCommandRec = commandRec;
