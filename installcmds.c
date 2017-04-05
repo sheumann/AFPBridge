@@ -5,8 +5,6 @@
 #include "asmglue.h"
 #include "cmdproc.h"
 
-extern LongWord completionRtn;
-
 typedef struct NewCmd {
     Word cmdNum;
     void (*cmdAddr)(void);
@@ -27,16 +25,9 @@ LongWord *cmdTable = (LongWord *)0xE1D600;
 
 LongWord oldCmds[MAX_CMD + 1];  /* holds old entries for commands we changed */
 
-ATGetInfoRec getInfoRec;
-
 void installCmds(void) {
     Word savedStateReg;
     NewCmd *cmd;
-    
-    getInfoRec.async = 0;
-    getInfoRec.command = atGetInfoCommand;
-    _CALLAT(&getInfoRec);
-    completionRtn = getInfoRec.completionRtn;
 
     savedStateReg = ForceLCBank2();
     

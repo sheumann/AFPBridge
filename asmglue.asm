@@ -39,7 +39,3 @@ RestoreStateReg start
 	long	m
 	rtl
 	end
-
-completionRtn data
-	ds	4
-	end

@@ -9,7 +9,7 @@ AFPMOUNTER_PROG = afpmounter
 DUMPCMDTBL_OBJS = dumpcmdtbl.o asmglue.o
 DUMPCMDTBL_PROG = dumpcmdtbl
 
-AFPBRIDGE_OBJS = afpbridge.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o installcmds.o cmdproc.o callat.o
+AFPBRIDGE_OBJS = afpinit.o afpbridge.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o installcmds.o cmdproc.o callat.o
 AFPBRIDGE_PROG = afpbridge
 
 PROGS = $(DSITEST_PROG) $(AFPMOUNTER_PROG) $(DUMPCMDTBL_PROG) $(AFPBRIDGE_PROG)
@@ -28,9 +28,14 @@ $(DUMPCMDTBL_PROG): $(DUMPCMDTBL_OBJS)
 
 $(AFPBRIDGE_PROG): $(AFPBRIDGE_OBJS)
 	occ $(CFLAGS) -o $@ $(AFPBRIDGE_OBJS)
+	chtyp -tpif $@
 
 %.macros: %.asm
 	macgen $< $@ /lang/orca/Libraries/ORCAInclude/m16.*
+
+.PHONY: install
+install: $(AFPBRIDGE_PROG)
+	cp $(AFPBRIDGE_PROG) "*/System/System.Setup"
 
 .PHONY: clean
 clean:
