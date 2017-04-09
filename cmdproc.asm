@@ -25,6 +25,17 @@ cmdProc	start
 	jml	DispatchASPCommand
 	end
 
+nbpCmdProc start
+	lda	3,s
+	pha
+	lda	3,s
+	pha
+	lda	cmdRecPtr
+	sta	4,s
+	lda	cmdRecPtr+2
+	sta	6,s
+	jml	DoLookupName
+	end
 
 CallCompletionRoutine start
 	phb

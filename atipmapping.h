@@ -2,6 +2,7 @@
 #define ATIPMAPPING_H
 
 #include <types.h>
+#include <appletalk.h>
 
 typedef struct ATIPMapping {
     /* AppleTalk address/socket */
@@ -15,5 +16,7 @@ typedef struct ATIPMapping {
 } ATIPMapping;
 
 extern struct ATIPMapping atipMapping;
+
+void DoLookupName(NBPLookupNameRec *commandRec);
 
 #endif

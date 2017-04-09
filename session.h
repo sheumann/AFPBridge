@@ -3,6 +3,7 @@
 
 #include <types.h>
 #include "dsiproto.h"
+#include "atipmapping.h"
 
 /* Common portion of records for the various SP... commands */
 typedef struct SPCommandRec {
@@ -54,6 +55,9 @@ typedef struct Session {
     /* Marinetti error codes, both the tcperr* value and any tool error */
     Word tcperr;
     Word toolerr;
+    
+    /* AppleTalk<->IP address mapping used for this session */
+    ATIPMapping atipMapping;
 } Session;
 
 #endif

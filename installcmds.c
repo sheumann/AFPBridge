@@ -16,6 +16,7 @@ NewCmd newCmds[] = {
     {aspCloseSessionCommand, cmdProc},
     {aspCommandCommand, cmdProc},
     {aspWriteCommand, cmdProc},
+    {nbpLookupNameCommand, nbpCmdProc},
     {0, 0}
 };
 

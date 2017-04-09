@@ -28,6 +28,8 @@ BOOLEAN StartTCPConnection(Session *sess) {
         return FALSE;
     }
     
+    sess->atipMapping = atipMapping;
+    
     if (TCPIPGetConnectStatus() == FALSE) {
         TCPIPConnect(NULL);
         if (toolerror()) {
