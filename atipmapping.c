@@ -10,6 +10,7 @@
 #include "asmglue.h"
 #include "aspinterface.h"
 #include "installcmds.h"
+#include "cmdproc.h"
 
 struct ATIPMapping atipMapping;
 
@@ -40,10 +41,6 @@ LongWord DoLookupName(NBPLookupNameRec *commandRec) {
     Word stateReg;
     
     stateReg = ForceRomIn();
-
-    // TODO support async calls
-    if (commandRec->async)
-        return_error(atSyncErr);
     
     // Length needed for result, assuming the request is for our type/zone
     count = offsetof(NBPLUNameBufferRec, entityName) 
@@ -146,6 +143,9 @@ haveMapping:
     resultBuf->socketNum = atipMapping.socket;
     commandRec->actualMatch = 1;
     commandRec->result = 0;
+    if ((commandRec->async & AT_ASYNC) && commandRec->completionPtr != 0) {
+        CallCompletionRoutine((void *)commandRec->completionPtr);
+    }
     RestoreStateReg(stateReg);
     return 0;
     
