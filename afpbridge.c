@@ -4,9 +4,14 @@
 #include <locator.h>
 #include <desk.h>
 #include <orca.h>
+#include <gsos.h>
 #include "installcmds.h"
 #include "aspinterface.h"
 #include "asmglue.h"
+
+extern Word *unloadFlagPtr;
+
+FSTInfoRecGS fstInfoRec;
 
 void pollTask(void);
 
@@ -20,7 +25,29 @@ static struct RunQRec {
 } runQRec;
 
 
+void setUnloadFlag(void) {
+    if (*unloadFlagPtr == 0)
+        *unloadFlagPtr = 1;
+}
+
 int main(void) {
+    unsigned int i;
+
+    /*
+     * Check for presence of AppleShare FST.  We error out and unload
+     * if it's not present.  Our code doesn't directly depend on the
+     * AppleShare FST, but in practice it's not useful without it.
+     * This also ensures lower-level AppleTalk stuff is present.
+     */
+    fstInfoRec.pCount = 2;
+    fstInfoRec.fileSysID = 0;
+    for (i = 1; fstInfoRec.fileSysID != appleShareFSID; i++) {
+        fstInfoRec.fstNum = i;
+        GetFSTInfoGS(&fstInfoRec);
+        if (toolerror() == paramRangeErr)
+            goto error;
+    }
+
     LoadOneTool(54, 0x0300);    /* load Marinetti 3.0+ */
     if (toolerror())
         goto error;
@@ -44,8 +71,11 @@ int main(void) {
     runQRec.jml = 0x5C;
     runQRec.proc = pollTask;
     AddToRunQ((Pointer)&runQRec);
+    
+    return;
 
 error:
+    setUnloadFlag();
     return;
 }
 
