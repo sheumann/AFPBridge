@@ -9,6 +9,7 @@
 #include "atipmapping.h"
 #include "asmglue.h"
 #include "aspinterface.h"
+#include "installcmds.h"
 
 struct ATIPMapping atipMapping;
 
@@ -25,11 +26,11 @@ static int nextSocket = 1;
     commandRec->result = (x);       \
     commandRec->actualMatch = 0;    \
     RestoreStateReg(stateReg);      \
-    return;                         \
+    return 0;                       \
 } while (0)
 
 #pragma databank 1
-void DoLookupName(NBPLookupNameRec *commandRec) {
+LongWord DoLookupName(NBPLookupNameRec *commandRec) {
     cvtRec hostInfo;
     dnrBuffer dnrInfo;
     Byte *curr, *dest;
@@ -146,11 +147,11 @@ haveMapping:
     commandRec->actualMatch = 1;
     commandRec->result = 0;
     RestoreStateReg(stateReg);
-    return;
+    return 0;
     
 passThrough:
-    // TODO pass through to actual NBP
-    return_error(nbpNameErr);
+    RestoreStateReg(stateReg);
+    return oldCmds[commandRec->command];
 }
 #pragma databank 0
 

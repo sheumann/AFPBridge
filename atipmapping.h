@@ -17,6 +17,6 @@ typedef struct ATIPMapping {
 
 extern struct ATIPMapping atipMapping;
 
-void DoLookupName(NBPLookupNameRec *commandRec);
+LongWord DoLookupName(NBPLookupNameRec *commandRec);
 
 #endif

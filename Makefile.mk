@@ -4,7 +4,7 @@ COMMAND = $(!eq,$(CMNDNAME),$(CC) $(CMNDNAME) $(USEORCALIBS)&&$(CC)) $(CMNDARGS)
 
 CFLAGS = -i -w -O95
 
-DSITEST_OBJS = dsitest.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o cmdproc.o
+DSITEST_OBJS = dsitest.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o cmdproc.o installcmds.o
 DSITEST_PROG = dsitest
 
 AFPMOUNTER_OBJS = afpmounter.o callat.o endian.o

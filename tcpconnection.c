@@ -21,14 +21,6 @@ BOOLEAN StartTCPConnection(Session *sess) {
     LongWord initialTime;
     
     commandRec = (ASPOpenSessionRec *)sess->spCommandRec;
-
-    if (commandRec->slsNet != atipMapping.networkNumber
-        || commandRec->slsNode != atipMapping.node
-        || commandRec->slsSocket != atipMapping.socket)
-    {
-        commandRec->result = aspNetworkErr;
-        return FALSE;
-    }
     
     sess->atipMapping = atipMapping;
     

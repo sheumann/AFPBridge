@@ -1,4 +1,5 @@
 	case	on
+	mcopy	cmdproc.macros
 
 RamGoComp gequ	$E1100C
 RamForbid gequ	$E11018
@@ -14,27 +15,41 @@ compPtr	gequ	$84
 
 * AppleTalk command procedure (which acts as a dispatcher for all commands)
 cmdProc	start
-	lda	3,s
-	pha
-	lda	3,s
+	lda	cmdRecPtr+2
 	pha
 	lda	cmdRecPtr
-	sta	4,s
-	lda	cmdRecPtr+2
-	sta	6,s
-	jml	DispatchASPCommand
+	pha
+	jsl	DispatchASPCommand
+	cmp	#0
+	bne	doOrig
+	cpx	#0
+	bne	doOrig
+	rtl
+doOrig	short	i		;push original procedure ptr
+	phx
+	long	i
+	dec	a
+	pha
+	rtl			;jump to it
 	end
 
 nbpCmdProc start
-	lda	3,s
-	pha
-	lda	3,s
+	lda	cmdRecPtr+2
 	pha
 	lda	cmdRecPtr
-	sta	4,s
-	lda	cmdRecPtr+2
-	sta	6,s
-	jml	DoLookupName
+	pha
+	jsl	DoLookupName
+	cmp	#0
+	bne	doOrig
+	cpx	#0
+	bne	doOrig
+	rtl
+doOrig	short	i		;push original procedure ptr
+	phx
+	long	i
+	dec	a
+	pha
+	rtl			;jump to it
 	end
 
 CallCompletionRoutine start

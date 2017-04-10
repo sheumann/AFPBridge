@@ -4,6 +4,7 @@
 #include <AppleTalk.h>
 #include "asmglue.h"
 #include "cmdproc.h"
+#include "installcmds.h"
 
 typedef struct NewCmd {
     Word cmdNum;
@@ -21,8 +22,6 @@ NewCmd newCmds[] = {
 };
 
 LongWord *cmdTable = (LongWord *)0xE1D600;
-
-#define MAX_CMD rpmFlushSessionCommand
 
 LongWord oldCmds[MAX_CMD + 1];  /* holds old entries for commands we changed */
 

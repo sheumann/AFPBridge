@@ -14,7 +14,7 @@
 
 extern Session sessionTbl[MAX_SESSIONS];
 
-void DispatchASPCommand(SPCommandRec *commandRec);
+LongWord DispatchASPCommand(SPCommandRec *commandRec);
 void CompleteASPCommand(Session *sess, Word result);
 void FinishASPCommand(Session *sess);
 void FlagFatalError(Session *sess, Word errorCode);

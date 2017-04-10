@@ -11,6 +11,8 @@
 #include "readtcp.h"
 #include "asmglue.h"
 #include "cmdproc.h"
+#include "installcmds.h"
+#include "atipmapping.h"
 
 typedef struct FPReadRec {
     Word CommandCode;   /* includes pad byte */
@@ -35,7 +37,7 @@ static void DoSPWrite(Session *sess, ASPWriteRec *commandRec);
 Session sessionTbl[MAX_SESSIONS];
 
 #pragma databank 1
-void DispatchASPCommand(SPCommandRec *commandRec) {
+LongWord DispatchASPCommand(SPCommandRec *commandRec) {
     Session *sess;
     unsigned int i;
     Word stateReg;
@@ -45,6 +47,13 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
     if (commandRec->command == aspGetStatusCommand 
         || commandRec->command==aspOpenSessionCommand)
     {
+        if (((ASPGetStatusRec*)commandRec)->slsNet != atipMapping.networkNumber
+            || ((ASPGetStatusRec*)commandRec)->slsNode != atipMapping.node
+            || ((ASPGetStatusRec*)commandRec)->slsSocket != atipMapping.socket)
+        {
+            goto callOrig;
+        }
+
         for (i = 0; i < MAX_SESSIONS; i++) {
             if (sessionTbl[i].dsiStatus == unused)
                 break;
@@ -57,16 +66,14 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
         sess->spCommandRec = commandRec;
         
         if (!StartTCPConnection(sess)) {
-            FlagFatalError(sess, 0);
+            FlagFatalError(sess, commandRec->result);
             goto ret;
         }
         sess->dsiStatus = awaitingHeader;
         InitReadTCP(sess, DSI_HEADER_SIZE, &sess->reply);
     } else {
         if (commandRec->refNum < SESSION_NUM_START) {
-            // TODO call original AppleTalk routine (or do it earlier)
-            commandRec->result = atInvalidCmdErr;
-            goto ret;
+            goto callOrig;
         }
         
         /*
@@ -135,6 +142,11 @@ void DispatchASPCommand(SPCommandRec *commandRec) {
 
 ret:    
     RestoreStateReg(stateReg);
+    return 0;
+
+callOrig:
+    RestoreStateReg(stateReg);
+    return oldCmds[commandRec->command];
 }
 #pragma databank 0
 
