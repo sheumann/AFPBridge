@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <AppleTalk.h>
 #include <orca.h>
+#include <misctool.h>
 #include "atipmapping.h"
 #include "session.h"
 
@@ -17,6 +18,7 @@ BOOLEAN StartTCPConnection(Session *sess) {
     Word tcperr;
     ASPOpenSessionRec *commandRec;
     srBuff mySRBuff;
+    LongWord initialTime;
     
     commandRec = (ASPOpenSessionRec *)sess->spCommandRec;
 
@@ -56,10 +58,11 @@ BOOLEAN StartTCPConnection(Session *sess) {
         return FALSE;
     }
     
+    initialTime = GetTick();
     do {
         TCPIPPoll();
         TCPIPStatusTCP(sess->ipid, &mySRBuff);
-    } while (mySRBuff.srState == TCPSSYNSENT);
+    } while (mySRBuff.srState == TCPSSYNSENT && GetTick()-initialTime < 15*60);
     if (mySRBuff.srState != TCPSESTABLISHED) {
         TCPIPAbortTCP(sess->ipid);
         TCPIPLogout(sess->ipid);
@@ -73,14 +76,17 @@ BOOLEAN StartTCPConnection(Session *sess) {
 
 void EndTCPConnection(Session *sess) {
     srBuff mySRBuff;
+    LongWord initialTime;
 
     if (sess->tcpLoggedIn) {
+        initialTime = GetTick();
         do {
             TCPIPPoll();
         } while (TCPIPStatusTCP(sess->ipid, &mySRBuff) == tcperrOK
                  && !toolerror()
                  && mySRBuff.srState == TCPSESTABLISHED
-                 && mySRBuff.srSndQueued > 0);
+                 && mySRBuff.srSndQueued > 0
+                 && GetTick()-initialTime < 15*60);
 
         TCPIPAbortTCP(sess->ipid);
         TCPIPLogout(sess->ipid);
