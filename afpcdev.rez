@@ -1,0 +1,272 @@
+#include "types.rez"
+
+resource rCDEVFlags (1) {
+    wantMachine+wantHit+wantInit+wantClose,
+    1,                          /* enabled */
+    1,                          /* version */
+    1,                          /* min ROM version */
+    0,                          /* reserved */
+    {0, 0, 55, 320},            /* rectangle */
+    "AFP Mounter",              /* name */
+    "Stephen Heumann",          /* author */
+    "v1.0b1"                    /* version string */
+};
+
+read rCDevCode (0x1,convert,locked) "AFPMounter.obj";
+
+resource rIcon (1) {
+    0x8000,                     /* color icon */
+    20,                         /* dimensions */
+    28,
+    $"FFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    $"FFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    $"FFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    $"F00000000FFFFFFFFFFFFFFFFFFF"
+    $"F0DDDDDD0FFFFFFFFFFFFFFFFFFF"
+    $"F0DDDDDD04FFFFFFFF4FFFFFFFFF"
+    $"F0DDDDDD04FFFFFFFF4F0FF000FF"
+    $"F0DDDDDD444FFFFF0444A0F0DD0F"
+    $"F0000000444FFFF0E4440A00DD0F"
+    $"FF0FFFF4F4F4FFF04E404AA0DD0F"
+    $"F000000404F4FFF04E404A00DD0F"
+    $"F0F4FF4F04FF4F04004004000000"
+    $"F000040004FFF44303433343330F"
+    $"4444444444444444444444444444"
+    $"3333333334333333334333333333"
+    $"4444444444444444444444444444"
+    $"FFFFFFFFF4FFFFFFFF4FFFFFFFFF"
+    $"FFFFFFFFF4FFFFFFFF4FFFFFFFFF"
+    $"FFFFFFFFF4FFFFFFFF4FFFFFFFFF"
+    $"FFFFFFFFF4FFFFFFFF4FFFFFFFFF",
+
+    $"0000000000000000000000000000"
+    $"0000000000000000000000000000"
+    $"0000000000000000000000000000"
+    $"0FFFFFFFF0000000000000000000"
+    $"0FFFFFFFF0000000000000000000"
+    $"0FFFFFFFFF00000000F000000000"
+    $"0FFFFFFFFF00000000F0F00FFF00"
+    $"0FFFFFFFFFF00000FFFFFF0FFFF0"
+    $"0FFFFFFFFFF0000FFFFFFFFFFFF0"
+    $"00FFFFFF0F0F000FFFFFFFFFFFF0"
+    $"0FFFFFFFFF0F000FFFFFFFFFFFF0"
+    $"0FFFFFFFFF00F0FFFFFFFFFFFFFF"
+    $"0FFFFFFFFF000FFFFFFFFFFFFFF0"
+    $"FFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    $"FFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    $"FFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+    $"000000000F00000000F000000000"
+    $"000000000F00000000F000000000"
+    $"000000000F00000000F000000000"
+    $"000000000F00000000F000000000"
+};
+
+#define cdevWindow          1000
+#define helpWindow          2000
+
+#define serverAddressTxt    2
+#define urlLine             3
+#define saveAliasBtn        4
+#define connectBtn          1
+
+#define helpTxt             5
+
+/*
+ * Controls in the control panel window
+ */
+resource rControlList (1) {
+    {
+        cdevWindow+serverAddressTxt,
+        cdevWindow+urlLine,
+        cdevWindow+saveAliasBtn,
+        cdevWindow+connectBtn
+    };
+};
+
+resource rControlTemplate (cdevWindow+serverAddressTxt) {
+    serverAddressTxt,                       /* control ID */
+    {4, 10, 15, 310},                       /* control rect */
+    statTextControl {{
+        0,                                  /* flags */
+        $1000+RefIsResource,                /* moreFlags */
+        0,                                  /* refCon */
+        cdevWindow+serverAddressTxt         /* title ref */
+    }};
+};
+
+resource rTextForLETextBox2 (cdevWindow+serverAddressTxt) {
+    "AFP Server Address:"
+};
+
+resource rControlTemplate (cdevWindow+urlLine) {
+    urlLine,
+    {15, 10, 28, 310},
+    editLineControl {{
+        0,
+        $7000+RefIsResource,
+        0,
+        255,                                /* max size */
+        cdevWindow+urlLine                  /* text ref */
+    }};
+};
+
+resource rPString (cdevWindow+urlLine) { "afp://" };
+
+resource rControlTemplate (cdevWindow+saveAliasBtn) {
+    saveAliasBtn,
+    {35, 10, 0, 0},
+    SimpleButtonControl {{
+        NormalButton,
+        $1000+RefIsResource,
+        0,
+        cdevWindow+saveAliasBtn
+    }};
+};
+
+resource rPString(cdevWindow+saveAliasBtn) { "Save Alias..." };
+
+resource rControlTemplate (cdevWindow+connectBtn) {
+    connectBtn,
+    {35, 220, 0, 0},
+    SimpleButtonControl {{
+        DefaultButton,
+        $3000+RefIsResource,
+        0,
+        cdevWindow+connectBtn,
+        0,                                  /* color table ref */
+        {"\$0D","\$0D",0,0}                 /* key equivalent = Return */
+    }};
+};
+
+resource rPString(cdevWindow+connectBtn) { "Connect" };
+
+
+/*
+ * Controls in the help window
+ */
+resource rControlList (2) {
+    {
+        helpWindow+helpTxt
+    };
+};
+
+resource rControlTemplate (helpWindow+helpTxt) {
+    helpTxt,
+    {38, 5, 138, 280},
+    statTextControl {{
+        0,                                  /* flags */
+        $1000+RefIsResource,                /* moreFlags */
+        0,                                  /* refCon */
+        helpWindow+helpTxt                  /* title ref */
+    }};
+};
+
+resource rTextForLETextBox2 (helpWindow+helpTxt) {
+    "The AFP Mounter control panel allows you to connect to "
+    "file servers using the Apple Filing Protocol (AFP) "
+    "over either AppleTalk or TCP/IP networks. "
+    "The server address can be specified by URLs "
+    "of the following forms:\n\$01X\$03\$00"
+    "afp://[user:password@]server[:port]/\n\$01X\$00\$00"
+    "volume          (to connect using TCP/IP)\n\$01X\$03\$00"
+    "afp:/at/[user:password@]server:zone/\n\$01X\$00\$00"
+    "volume    (to connect using AppleTalk)\n"
+};
+
+
+/*
+ * Error messages
+ */
+
+#define fstMissingError             3000
+#define noEasyMountError            3001
+
+#define protoInvalidError           4000
+#define noServerOrVolumeNameError   4001
+#define serverNameTooLongError      4002
+#define volumeNameTooLongError      4003
+#define zoneTooLongError            4004
+#define usernameTooLongError        4005
+#define passwordTooLongError        4006
+#define volpassTooLongError         4007
+#define userXorPasswordError        4008
+#define badUAMError                 4009
+
+resource rAlertString (fstMissingError) {
+    "72:"
+    "To use the AFP Mounter control panel, the AppleShare FST "
+    "and the AppleTalk-related system components it requires "
+    "must be installed and enabled."
+    ":^#0\$00"
+};
+
+resource rAlertString (noEasyMountError) {
+    "72:"
+    "Communication with EasyMount failed.\n"
+    "\n"
+    "To use the AFP Mounter control panel, EasyMount must be "
+    "installed and enabled."
+    ":^#0\$00"
+};
+
+resource rAlertString (protoInvalidError) {
+    "32:"
+    "The specified address is not a valid AFP URL."
+    ":^#0\$00"
+};
+
+resource rAlertString (noServerOrVolumeNameError) {
+    "32:"
+    "Please specify at least a server and volume name in the AFP URL."
+    ":^#0\$00"
+};
+
+resource rAlertString (serverNameTooLongError) {
+    "32:"
+    "The server name is too long (maximum 32 characters)."
+    ":^#0\$00"
+};
+
+resource rAlertString (volumeNameTooLongError) {
+    "32:"
+    "The volume name is too long (maximum 27 characters)."
+    ":^#0\$00"
+};
+
+resource rAlertString (zoneTooLongError) {
+    "32:"
+    "The zone name is too long (maximum 32 characters)."
+    ":^#0\$00"
+};
+
+resource rAlertString (usernameTooLongError) {
+    "32:"
+    "The username is too long (maximum 31 characters)."
+    ":^#0\$00"
+};
+
+resource rAlertString (passwordTooLongError) {
+    "32:"
+    "The password is too long (maximum 8 characters)."
+    ":^#0\$00"
+};
+
+resource rAlertString (volpassTooLongError) {
+    "32:"
+    "The volume password is too long (maximum 8 characters)."
+    ":^#0\$00"
+};
+
+resource rAlertString (userXorPasswordError) {
+    "42:"
+    "Please specify both a username and a password, or neither."
+    ":^#0\$00"
+};
+
+resource rAlertString (badUAMError) {
+    "62:"
+    "The requested user authentication method is not supported "
+    "or cannot be used with the specified URL."
+    ":^#0\$00"
+};
+
