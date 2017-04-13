@@ -16,7 +16,7 @@ DUMPCMDTBL_PROG = dumpcmdtbl
 AFPBRIDGE_OBJS = afpinit.o afpbridge.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o installcmds.o cmdproc.o callat.o
 AFPBRIDGE_PROG = AFPBridge
 
-AFPMOUNTER_OBJS = afpcdev.o afpurlparser.o cdevutil.o
+AFPMOUNTER_OBJS = cdevstart.o afpcdev.o afpurlparser.o
 AFPMOUNTER_RSRC = afpcdev.rez
 AFPMOUNTER_CDEV = AFPMounter
 

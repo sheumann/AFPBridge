@@ -498,7 +498,8 @@ LongWord cdevMain (LongWord data2, LongWord data1, Word message)
     case EditCDEV:      DoEdit(data1 & 0xFFFF);     break;
     case InitCDEV:      wPtr = (WindowPtr)data1;    break;
     case CloseCDEV:     wPtr = NULL;                break;
-    case EventsCDEV:    modifiers = ((EventRecordPtr)data1)->modifiers;
+    case EventsCDEV:    /* Now done in assembly for speed.  Equivalent to: */
+                        /* modifiers = ((EventRecordPtr)data1)->modifiers; */
                         break;
     }
 
