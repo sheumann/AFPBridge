@@ -1,7 +1,7 @@
 #include "types.rez"
 
 resource rCDEVFlags (1) {
-    wantMachine+wantHit+wantInit+wantClose+wantEvents,
+    wantMachine+wantHit+wantInit+wantClose+wantEvents+wantEdit,
     1,                          /* enabled */
     1,                          /* version */
     1,                          /* min ROM version */

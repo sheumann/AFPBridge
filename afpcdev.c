@@ -14,7 +14,9 @@
 #include <control.h>
 #include <resources.h>
 #include <stdfile.h>
+#include <lineedit.h>
 #include <memory.h>
+#include <desk.h>
 #include <finder.h>
 #include "afpurlparser.h"
 #include "cdevutil.h"
@@ -339,8 +341,7 @@ err:
 
 void DoSave(void)
 {
-    Boolean sfStatus, loadedSF = FALSE, allocatedDP = FALSE, startedSF = FALSE;
-    Boolean completedOK = FALSE;
+    Boolean loadedSF = FALSE, startedSF = FALSE, completedOK = FALSE;
     Handle dpSpace;
     AFPURLParts urlParts;
 
@@ -360,18 +361,13 @@ void DoSave(void)
                 attrLocked|attrFixed|attrNoCross|attrBank|attrPage, 0x000000);
         if (toolerror())
             goto err;
-        allocatedDP = TRUE;
         SFStartUp(GetCurResourceApp(), (Word) *dpSpace);
-        if (toolerror())
-            goto err;
         startedSF = TRUE;
     }
     
     /* Initially proposed file name = volume name */
     origNameString.length = strlen(urlParts.volume);
-    if (origNameString.length > sizeof(origNameString.text))
-        origNameString.length = sizeof(origNameString.text);
-    strncpy(origNameString.text, urlParts.volume, sizeof(origNameString.text));
+    strcpy(origNameString.text, urlParts.volume); /* OK since VOLUME_MAX < 32 */
     
     /* Get the file name */
     memset(&sfReplyRec, 0, sizeof(sfReplyRec));
@@ -398,10 +394,10 @@ void DoSave(void)
 err:
     if (!completedOK)
         AlertWindow(awResource+awButtonLayout, NULL, saveAliasError);
-    if (startedSF)
+    if (startedSF) {
         SFShutDown();
-    if (allocatedDP)
         DisposeHandle(dpSpace);
+    }
     if (loadedSF)
         UnloadOneTool(0x17);
 
@@ -439,6 +435,42 @@ long DoMachine(void)
     return 1;
 }
 
+void DoEdit(Word op)
+{
+    CtlRecHndl ctl;
+    GrafPortPtr port;
+    LERecHndl leHandle;
+    LongWord ctlParams;
+    
+    if (!wPtr)
+        return;
+    port = GetPort();
+    SetPort(wPtr);
+    
+    ctl = FindTargetCtl();
+    if (toolerror() || GetCtlID(ctl) != urlLine)
+        goto ret;
+
+    switch (op) {
+    case cutAction:     LECut((LERecHndl) GetCtlTitle(ctl));
+                        if (LEGetScrapLen() > 0)
+                            LEToScrap();
+                        break;
+    case copyAction:    LECopy((LERecHndl) GetCtlTitle(ctl));
+                        if (LEGetScrapLen() > 0)
+                            LEToScrap();
+                        break;
+    case pasteAction:   LEFromScrap();
+                        LEPaste((LERecHndl) GetCtlTitle(ctl));
+                        break;
+    case clearAction:   LEDelete((LERecHndl) GetCtlTitle(ctl));
+                        break;
+    }
+
+ret:
+    SetPort(port);
+}
+
 LongWord cdevMain (LongWord data2, LongWord data1, Word message)
 {
     long result = 0;
@@ -446,6 +478,7 @@ LongWord cdevMain (LongWord data2, LongWord data1, Word message)
     switch(message) {
     case MachineCDEV:   result = DoMachine();       break;
     case HitCDEV:       DoHit(data2);               break;
+    case EditCDEV:      DoEdit(data1 & 0xFFFF);     break;
     case InitCDEV:      wPtr = (WindowPtr)data1;    break;
     case CloseCDEV:     wPtr = NULL;                break;
     case EventsCDEV:    modifiers = ((EventRecordPtr)data1)->modifiers;
