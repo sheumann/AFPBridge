@@ -119,7 +119,7 @@ AFPURLParts parseAFPURL(char *url)
     
     sep = strchr(urlParts.server, ':');
     if (sep && (urlParts.protocol == proto_AT || 
-        (urlParts.protocol == proto_unknown 
+        ((urlParts.protocol == proto_unknown || urlParts.protocol == proto_TCP)
             && strspn(sep+1, "0123456789") != strlen(sep+1))))
     {
         *sep = 0;
@@ -136,7 +136,8 @@ AFPURLParts parseAFPURL(char *url)
 /* Check if an AFP URL is suitable for our AFP mounter */
 int validateAFPURL(AFPURLParts *urlParts)
 {
-    if (urlParts->server == NULL || urlParts->volume == NULL)
+    if (urlParts->server == NULL || urlParts->volume == NULL
+        || *urlParts->server == 0 || *urlParts->volume == 0)
         return noServerOrVolumeNameError;
     if (urlParts->protocol == proto_invalid)
         return protoInvalidError;
@@ -152,14 +153,10 @@ int validateAFPURL(AFPURLParts *urlParts)
         return passwordTooLongError;
     if (urlParts->volpass != NULL && strlen(urlParts->volpass) > VOLPASS_MAX)
         return volpassTooLongError;
-    
-    /* Must have username & password, or neither */
-    if (urlParts->username == NULL) 
-        if (urlParts->password != NULL && *urlParts->password != 0)
-            return userXorPasswordError;
-    if (urlParts->password == NULL) 
-        if (urlParts->username != NULL && *urlParts->username != 0)
-            return userXorPasswordError;
+
+    if (urlParts->password != NULL && *urlParts->password != 0
+        && (urlParts->username == NULL || *urlParts->username == 0))
+        return passwordWithoutUserError;
 
     if (urlParts->auth != NULL) {
         if (strncasecmp(urlParts->auth, "No User Authent", 16) == 0) {
@@ -167,8 +164,7 @@ int validateAFPURL(AFPURLParts *urlParts)
                 || (urlParts->password != NULL && *urlParts->password != 0))
                 return badUAMError;
         } else if (strncasecmp(urlParts->auth, "Randnum Exchange", 17) == 0) {
-            if (urlParts->username == NULL || *urlParts->username == 0
-                || urlParts->password == NULL)
+            if (urlParts->username == NULL || *urlParts->username == 0)
                 return badUAMError;
         } else {
             /* unknown/unsupported UAM */

@@ -30,7 +30,7 @@ typedef struct AFPURLParts {
 #define usernameTooLongError        4005
 #define passwordTooLongError        4006
 #define volpassTooLongError         4007
-#define userXorPasswordError        4008
+#define passwordWithoutUserError    4008
 #define badUAMError                 4009
 
 AFPURLParts parseAFPURL(char *url);

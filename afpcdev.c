@@ -5,12 +5,17 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <locator.h>
+#include <misctool.h>
 #include <gsos.h>
 #include <orca.h>
 #include <AppleTalk.h>
 #include <quickdraw.h>
 #include <window.h>
 #include <control.h>
+#include <resources.h>
+#include <stdfile.h>
+#include <memory.h>
+#include <finder.h>
 #include "afpurlparser.h"
 #include "cdevutil.h"
 
@@ -31,8 +36,17 @@
 #define saveAliasBtn        4
 #define connectBtn          1
 
+#define saveFilePrompt      100
+
 #define fstMissingError     3000
 #define noEasyMountError    3001
+#define tempFileError       3002
+#define aliasFileError      3003
+#define tempFileNameError   3004
+#define saveAliasError      3005
+
+#define EM_filetype     0xE2
+#define EM_auxtype      0xFFFF
 
 FSTInfoRecGS fstInfoRec;
 
@@ -40,26 +54,46 @@ char urlBuf[257];
 
 WindowPtr wPtr = NULL;
 
+/* System 6.0-style EasyMount rec, as documented in its FTN. */
 typedef struct EasyMountRec {
-    Word size;
     char entity[97];
     char volume[28];
     char user[32];
     char password[8];
     char volpass[8];
-    /* Below fields are new in System 6.0.1 version */
-    Word version;  /* 1 = file alias, 2 = 6.0.1-style server alias */
-    char volume2[29];
 } EasyMountRec;
 
 EasyMountRec easyMountRec;
 
-struct ResultRec {
-    Word recvCount;
-    Word result;
-} resultRec;
-
 char afpOverTCPZone[] = "AFP over TCP";
+
+typedef struct GSString1024 {
+    Word length;
+    char text[1024];
+} GSString1024;
+
+typedef struct ResultBuf1024 {
+    Word  bufSize;
+    GSString1024 bufString;
+} ResultBuf1024;
+
+CreateRecGS createRec;
+OpenRecGS openRec;
+IORecGS writeRec;
+RefNumRecGS closeRec;
+NameRecGS destroyRec;
+RefInfoRecGS getRefInfoRec;
+
+ResultBuf1024 filename = { sizeof(ResultBuf1024) };
+
+char tempFileName[] = "AFPMounter.Temp";
+
+finderSaysBeforeOpenIn fsboRec;
+
+GSString32 origNameString;
+SFReplyRec2 sfReplyRec;
+
+Word modifiers = 0;
 
 void fillEasyMountRec(char *server, char *zone, char *volume, char *user,
                       char *password, char *volpass)
@@ -68,8 +102,6 @@ void fillEasyMountRec(char *server, char *zone, char *volume, char *user,
     char *next;
 
     memset(&easyMountRec, 0, sizeof(easyMountRec));
-    easyMountRec.size = offsetof(EasyMountRec, volume2) + 2 + strlen(volume);
-    easyMountRec.version = 2;
 
     i = 0;
     next = server;
@@ -97,67 +129,91 @@ void fillEasyMountRec(char *server, char *zone, char *volume, char *user,
     strncpy(&easyMountRec.password[0], password, sizeof(easyMountRec.password));
     
     strncpy(&easyMountRec.volpass[0], volpass, sizeof(easyMountRec.volpass));
-
-    easyMountRec.volume2[0] = strlen(volume) + 1;
-    easyMountRec.volume2[1] = ':';
-    strncpy(&easyMountRec.volume2[2], volume, sizeof(easyMountRec.volume2) - 2);
 }
 
-Word tryConnect(enum protocol protocol, AFPURLParts *urlParts)
+int deleteAlias(GSString255Ptr file, Boolean overwrite)
 {
-    resultRec.recvCount = 0;
-    resultRec.result = 0;
-
-    if (protocol == proto_AT) {
-        fillEasyMountRec(urlParts->server, urlParts->zone,
-                         urlParts->volume, urlParts->username,
-                         urlParts->password, urlParts->volpass);
-    } else if (protocol == proto_TCP) {
-        fillEasyMountRec(urlParts->server, afpOverTCPZone,
-                         urlParts->volume, urlParts->username,
-                         urlParts->password, urlParts->volpass);
-    } else {
-        return atInvalidCmdErr;
-    }
-    
-    SendRequest(0x8000, sendToName+stopAfterOne, (Long)"\pApple~EasyMount~",
-                (Long)&easyMountRec, (Ptr)&resultRec);
-    
-    if (resultRec.recvCount == 0) {
-        return atInvalidCmdErr;
-    } else {
-        return resultRec.result;
-    }
-}
-
-void connect(AFPURLParts *urlParts)
-{
-    Word result;
-
-    if (urlParts->protocol == proto_AT || urlParts->protocol == proto_TCP) {
-        result = tryConnect(urlParts->protocol, urlParts);
-    } else if (urlParts->protocol == proto_unknown) {
+    if (overwrite) {
         /*
-         * If server name contains a dot it's probably an IP address or
-         * domain name, so try TCP first.  Otherwise try AppleTalk first.
-         * In either case, we proceed to try the other if we get an NBP error.
+         * Zero out the data before deleting, so password isn't left
+         * in the unallocated disk block.
          */
-        if (strchr(urlParts->server, '.') != NULL) {
-            if (((result = tryConnect(proto_TCP, urlParts)) & 0xFF00) == 0x0400)
-                result = tryConnect(proto_AT, urlParts);
-        } else {
-            if (((result = tryConnect(proto_AT, urlParts)) & 0xFF00) == 0x0400)
-                result = tryConnect(proto_TCP, urlParts);
-        }
-    } else {
-        AlertWindow(awResource, NULL, protoInvalidError);
-        return;
+        memset(&easyMountRec, 0, sizeof(easyMountRec));
+
+        openRec.pCount = 3;
+        openRec.pathname = file;
+        openRec.requestAccess = writeEnable;
+        OpenGS(&openRec);
+        if (toolerror())
+            goto destroy;
+    
+        writeRec.pCount = 5;
+        writeRec.refNum = openRec.refNum;
+        writeRec.dataBuffer = (Pointer)&easyMountRec;
+        writeRec.requestCount = sizeof(EasyMountRec);
+        writeRec.cachePriority = cacheOff;
+        WriteGS(&writeRec);
+        if (toolerror())
+            goto destroy;
+    
+        closeRec.pCount = 1;
+        closeRec.refNum = openRec.refNum;
+        CloseGS(&closeRec);
+        if (toolerror())
+            goto destroy;
+    }
+
+destroy:
+    destroyRec.pCount = 1;
+    destroyRec.pathname = file;
+    DestroyGS(&destroyRec);
+    return toolerror();
+}
+
+int writeAlias(GSString255Ptr file)
+{
+    int err;
+
+    createRec.pCount = 6;
+    createRec.pathname = file;
+    createRec.access = readEnable|writeEnable|renameEnable|destroyEnable;
+    createRec.fileType = EM_filetype;
+    createRec.auxType = EM_auxtype;
+    createRec.storageType = standardFile;
+    createRec.eof = sizeof(EasyMountRec);
+    CreateGS(&createRec);
+    if ((err = toolerror()))
+        return err;
+    
+    openRec.pCount = 3;
+    openRec.pathname = file;
+    openRec.requestAccess = writeEnable;
+    OpenGS(&openRec);
+    if ((err = toolerror())) {
+        deleteAlias(file, FALSE);
+        return err;
     }
     
-    if (resultRec.recvCount == 0) {
-        AlertWindow(awResource, NULL, noEasyMountError);
-        return;
+    writeRec.pCount = 5;
+    writeRec.refNum = openRec.refNum;
+    writeRec.dataBuffer = (Pointer)&easyMountRec;
+    writeRec.requestCount = sizeof(EasyMountRec);
+    writeRec.cachePriority = cacheOn;
+    WriteGS(&writeRec);
+    if ((err = toolerror())) {
+        deleteAlias(file, TRUE);
+        return err;
     }
+    
+    closeRec.pCount = 1;
+    closeRec.refNum = openRec.refNum;
+    CloseGS(&closeRec);
+    if ((err = toolerror())) {
+        deleteAlias(file, TRUE);
+        return err;
+    }
+    
+    return 0;
 }
 
 void finalizeURLParts(AFPURLParts *urlParts)
@@ -176,32 +232,191 @@ void finalizeURLParts(AFPURLParts *urlParts)
         urlParts->volpass = "";
     if (urlParts->volume == NULL)
         urlParts->volume = "";
+
+    /*
+     * Guess the protocol if it's not explicitly specified: 
+     * If server name contains a dot it's probably an IP address
+     * or domain name, so use TCP.  Otherwise use AppleTalk.
+     */
+    if (urlParts->protocol == proto_unknown) {
+        if (strchr(urlParts->server, '.') != NULL) {
+            urlParts->protocol = proto_TCP;
+        } else {
+            urlParts->protocol = proto_AT;
+        }
+    }
+
+    if (urlParts->protocol == proto_TCP) {
+        urlParts->zone = afpOverTCPZone;
+    }
 }
 
-void DoConnect(char *url)
-{
+AFPURLParts prepareURL(char *url) {
+    int result;
     AFPURLParts urlParts;
-    int validationError;
-    
-    urlParts = parseAFPURL(url);
 
-    if (validationError = validateAFPURL(&urlParts)) {
-        AlertWindow(awResource, NULL, validationError);
+    urlParts = parseAFPURL(url);
+    result = validateAFPURL(&urlParts);
+    if (result != 0) {
+        AlertWindow(awResource+awButtonLayout, NULL, result);
+        urlParts.protocol = proto_invalid;
+        return urlParts;
+    }
+    finalizeURLParts(&urlParts);
+    return urlParts;
+}
+
+void ConnectOrSave(AFPURLParts* urlParts, GSString255Ptr file, Boolean connect)
+{
+    Word recvCount;
+
+    fillEasyMountRec(urlParts->server, urlParts->zone, urlParts->volume,
+                     urlParts->username, urlParts->password, urlParts->volpass);
+    
+    if (writeAlias(file) != 0) {
+        AlertWindow(awResource+awButtonLayout, NULL, 
+                    connect ? tempFileError : aliasFileError);
         return;
     }
     
-    finalizeURLParts(&urlParts);
-    connect(&urlParts);
+    if (connect) {
+        recvCount = 0;
+        fsboRec.pCount = 7;
+        fsboRec.pathname = (pointer)file;
+        fsboRec.zoomRect = 0;
+        fsboRec.filetype = EM_filetype;
+        fsboRec.auxtype = EM_auxtype;
+        fsboRec.modifiers = modifiers;
+        fsboRec.theIconObj = 0;
+        fsboRec.printFlag = 0;
+        SendRequest(finderSaysBeforeOpen, sendToAll+stopAfterOne, 0,
+                    (Long)&fsboRec, (Ptr)&recvCount);
+
+        deleteAlias(file, TRUE);
+
+        if (recvCount == 0) {
+            AlertWindow(awResource+awButtonLayout, NULL, noEasyMountError);
+            return;
+        }
+    }
+}
+
+void DoConnect(void)
+{
+    Word i;
+    char *lastColon;
+    AFPURLParts urlParts;
+
+    GetLETextByID(wPtr, urlLine, (StringPtr)&urlBuf);
+    urlParts = prepareURL(urlBuf+1);
+    if (urlParts.protocol == proto_invalid)
+        return;
+    
+    /* Generate the path name for the temp file in same dir as the CDev */
+    getRefInfoRec.pCount = 3;
+    getRefInfoRec.refNum = GetOpenFileRefNum(0); /* current resource file */
+    getRefInfoRec.pathname = (ResultBuf255Ptr)&filename;
+    GetRefInfoGS(&getRefInfoRec);
+    if (toolerror())
+        goto err;
+    if (filename.bufString.length > filename.bufSize - 5 - strlen(tempFileName))
+        goto err;
+    filename.bufString.text[filename.bufString.length] = 0;
+    lastColon = strrchr(filename.bufString.text, ':');
+    if (lastColon == NULL)
+        goto err;
+    strcpy(lastColon + 1, tempFileName);
+    filename.bufString.length = strlen(filename.bufString.text);
+    
+    ConnectOrSave(&urlParts, (GSString255Ptr)&filename.bufString, TRUE);
+    return;
+
+err:
+    /* Most error cases here should be impossible or very unlikely. */
+    AlertWindow(awResource+awButtonLayout, NULL, tempFileNameError);
+    return;
+}
+
+void DoSave(void)
+{
+    Boolean sfStatus, loadedSF = FALSE, allocatedDP = FALSE, startedSF = FALSE;
+    Boolean completedOK = FALSE;
+    Handle dpSpace;
+    AFPURLParts urlParts;
+
+    GetLETextByID(wPtr, urlLine, (StringPtr)&urlBuf);
+    urlParts = prepareURL(urlBuf+1);
+    if (urlParts.protocol == proto_invalid)
+        return;
+    
+    /* Load Standard File toolset if necessary */
+    if (!SFStatus() || toolerror()) {
+        if (toolerror())
+            loadedSF = TRUE;
+        LoadOneTool(0x17, 0x0303);  /* Standard File */
+        if (toolerror())
+            goto err;
+        dpSpace = NewHandle(0x0100, GetCurResourceApp(),
+                attrLocked|attrFixed|attrNoCross|attrBank|attrPage, 0x000000);
+        if (toolerror())
+            goto err;
+        allocatedDP = TRUE;
+        SFStartUp(GetCurResourceApp(), (Word) *dpSpace);
+        if (toolerror())
+            goto err;
+        startedSF = TRUE;
+    }
+    
+    /* Initially proposed file name = volume name */
+    origNameString.length = strlen(urlParts.volume);
+    if (origNameString.length > sizeof(origNameString.text))
+        origNameString.length = sizeof(origNameString.text);
+    strncpy(origNameString.text, urlParts.volume, sizeof(origNameString.text));
+    
+    /* Get the file name */
+    memset(&sfReplyRec, 0, sizeof(sfReplyRec));
+    sfReplyRec.nameRefDesc = refIsNewHandle;
+    sfReplyRec.pathRefDesc = refIsPointer;
+    sfReplyRec.pathRef = (Ref) &filename;
+    SFPutFile2(GetMasterSCB() & scbColorMode ? 160 : 25, 40, 
+               refIsResource, saveFilePrompt,
+               refIsPointer, (Ref)&origNameString, &sfReplyRec);
+    if (toolerror()) {
+        if (sfReplyRec.good)
+            DisposeHandle((Handle)sfReplyRec.nameRef);
+        goto err;
+    }
+    
+    /* Save the file, unless user canceled */
+    if (sfReplyRec.good) {
+        DisposeHandle((Handle)sfReplyRec.nameRef);
+        deleteAlias((GSString255Ptr)&filename.bufString, FALSE);
+        ConnectOrSave(&urlParts, (GSString255Ptr)&filename.bufString, FALSE);
+    }
+    completedOK = TRUE;
+
+err:
+    if (!completedOK)
+        AlertWindow(awResource+awButtonLayout, NULL, saveAliasError);
+    if (startedSF)
+        SFShutDown();
+    if (allocatedDP)
+        DisposeHandle(dpSpace);
+    if (loadedSF)
+        UnloadOneTool(0x17);
+
+    return;
 }
 
 void DoHit(long ctlID)
 {
     if (ctlID == connectBtn) {
-        GetLETextByID(wPtr, urlLine, (StringPtr)&urlBuf);
-        DoConnect(urlBuf+1);
+        DoConnect();
     } else if (ctlID == saveAliasBtn) {
-        
+        DoSave();
     }
+    
+    return;
 }
 
 long DoMachine(void)
@@ -216,7 +431,7 @@ long DoMachine(void)
         GetFSTInfoGS(&fstInfoRec);
         if (toolerror() == paramRangeErr) {
             InitCursor();
-            AlertWindow(awResource, NULL, fstMissingError);
+            AlertWindow(awResource+awButtonLayout, NULL, fstMissingError);
             return 0;
         }
     }
@@ -233,6 +448,8 @@ LongWord cdevMain (LongWord data2, LongWord data1, Word message)
     case HitCDEV:       DoHit(data2);               break;
     case InitCDEV:      wPtr = (WindowPtr)data1;    break;
     case CloseCDEV:     wPtr = NULL;                break;
+    case EventsCDEV:    modifiers = ((EventRecordPtr)data1)->modifiers;
+                        break;
     }
 
 ret:

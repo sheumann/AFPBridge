@@ -1,7 +1,7 @@
 #include "types.rez"
 
 resource rCDEVFlags (1) {
-    wantMachine+wantHit+wantInit+wantClose,
+    wantMachine+wantHit+wantInit+wantClose+wantEvents,
     1,                          /* enabled */
     1,                          /* version */
     1,                          /* min ROM version */
@@ -70,6 +70,8 @@ resource rIcon (1) {
 #define connectBtn          1
 
 #define helpTxt             5
+
+#define saveFilePrompt      100
 
 /*
  * Controls in the control panel window
@@ -173,6 +175,7 @@ resource rTextForLETextBox2 (helpWindow+helpTxt) {
     "volume    (to connect using AppleTalk)\n"
 };
 
+resource rPString(saveFilePrompt) { "Save server alias as:" };
 
 /*
  * Error messages
@@ -180,6 +183,10 @@ resource rTextForLETextBox2 (helpWindow+helpTxt) {
 
 #define fstMissingError             3000
 #define noEasyMountError            3001
+#define tempFileError               3002
+#define aliasFileError              3003
+#define tempFileNameError           3004
+#define saveAliasError              3005
 
 #define protoInvalidError           4000
 #define noServerOrVolumeNameError   4001
@@ -189,7 +196,7 @@ resource rTextForLETextBox2 (helpWindow+helpTxt) {
 #define usernameTooLongError        4005
 #define passwordTooLongError        4006
 #define volpassTooLongError         4007
-#define userXorPasswordError        4008
+#define passwordWithoutUserError    4008
 #define badUAMError                 4009
 
 resource rAlertString (fstMissingError) {
@@ -257,9 +264,9 @@ resource rAlertString (volpassTooLongError) {
     ":^#0\$00"
 };
 
-resource rAlertString (userXorPasswordError) {
+resource rAlertString (passwordWithoutUserError) {
     "42:"
-    "Please specify both a username and a password, or neither."
+    "When a password is specified, a user name must also be given."
     ":^#0\$00"
 };
 
@@ -270,3 +277,30 @@ resource rAlertString (badUAMError) {
     ":^#0\$00"
 };
 
+resource rAlertString (tempFileError) {
+    "82:"
+    "There was an error writing the temporary file used by the "
+    "AFPMounter control panel.  Please make sure the directory "
+    "containing the AFPMounter control panel is writable and "
+    "remove the AFPMounter.Temp file if it is present."
+    ":^#0\$00"
+};
+
+resource rAlertString (aliasFileError) {
+    "32:"
+    "There was an error writing the alias file."
+    ":^#0\$00"
+};
+
+resource rAlertString (tempFileNameError) {
+    "72:"
+    "There was an error while constructing the name for the "
+    "temporary file used by the AFPMounter control panel."
+    ":^#0\$00"
+};
+
+resource rAlertString (saveAliasError) {
+    "42:"
+    "There was an error while attempting to save the alias file."
+    ":^#0\$00"
+};
