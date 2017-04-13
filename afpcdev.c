@@ -308,11 +308,13 @@ void DoConnect(void)
     Word i;
     char *lastColon;
     AFPURLParts urlParts;
+    Boolean completedOK = FALSE;
+    CtlRecHndl ctl;
 
     GetLETextByID(wPtr, urlLine, (StringPtr)&urlBuf);
     urlParts = prepareURL(urlBuf+1);
     if (urlParts.protocol == proto_invalid)
-        return;
+        goto fixcaret;
     
     /* Generate the path name for the temp file in same dir as the CDev */
     getRefInfoRec.pCount = 3;
@@ -331,12 +333,20 @@ void DoConnect(void)
     filename.bufString.length = strlen(filename.bufString.text);
     
     ConnectOrSave(&urlParts, (GSString255Ptr)&filename.bufString, TRUE);
-    return;
+    completedOK = TRUE;
 
 err:
     /* Most error cases here should be impossible or very unlikely. */
-    AlertWindow(awResource+awButtonLayout, NULL, tempFileNameError);
-    return;
+    if (!completedOK)
+        AlertWindow(awResource+awButtonLayout, NULL, tempFileNameError);
+
+fixcaret:
+    /* Work around issue where parts of the LE caret may flash out of sync */
+    ctl = GetCtlHandleFromID(wPtr, urlLine);
+    LEDeactivate((LERecHndl) GetCtlTitle(ctl));
+    if (FindTargetCtl() == ctl) {
+        LEActivate((LERecHndl) GetCtlTitle(ctl));
+    }
 }
 
 void DoSave(void)
@@ -344,6 +354,7 @@ void DoSave(void)
     Boolean loadedSF = FALSE, startedSF = FALSE, completedOK = FALSE;
     Handle dpSpace;
     AFPURLParts urlParts;
+    CtlRecHndl ctl;
 
     GetLETextByID(wPtr, urlLine, (StringPtr)&urlBuf);
     urlParts = prepareURL(urlBuf+1);
@@ -401,11 +412,19 @@ err:
     if (loadedSF)
         UnloadOneTool(0x17);
 
-    return;
+    /* Work around issue where parts of the LE caret may flash out of sync */
+    ctl = GetCtlHandleFromID(wPtr, urlLine);
+    LEDeactivate((LERecHndl) GetCtlTitle(ctl));
+    if (FindTargetCtl() == ctl) {
+        LEActivate((LERecHndl) GetCtlTitle(ctl));
+    }
 }
 
 void DoHit(long ctlID)
 {
+    if (!wPtr)  /* shouldn't happen */
+        return;
+
     if (ctlID == connectBtn) {
         DoConnect();
     } else if (ctlID == saveAliasBtn) {
@@ -439,8 +458,6 @@ void DoEdit(Word op)
 {
     CtlRecHndl ctl;
     GrafPortPtr port;
-    LERecHndl leHandle;
-    LongWord ctlParams;
     
     if (!wPtr)
         return;
