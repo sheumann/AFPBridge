@@ -17,6 +17,7 @@
 #include <lineedit.h>
 #include <memory.h>
 #include <desk.h>
+#include <menu.h>
 #include <finder.h>
 #include "afpurlparser.h"
 #include "cdevutil.h"
@@ -37,8 +38,15 @@
 #define urlLine             3
 #define saveAliasBtn        4
 #define connectBtn          1
+#define optionsPopUp        6
+#define trianglePic         7
 
 #define saveFilePrompt      100
+
+#define optionsMenu             300
+#define afpOverTCPOptionsItem   301
+#define useLargeReadsItem       302
+#define forceAFP22Item          303
 
 #define fstMissingError     3000
 #define noEasyMountError    3001
@@ -96,6 +104,11 @@ GSString32 origNameString;
 SFReplyRec2 sfReplyRec;
 
 Word modifiers = 0;
+
+#define fLargeReads     0x0001
+#define fForceAFP22     0x0002
+
+Word flags = fLargeReads; /* for AFP over TCP connections */
 
 void fillEasyMountRec(char *server, char *zone, char *volume, char *user,
                       char *password, char *volpass)
@@ -420,8 +433,11 @@ err:
     }
 }
 
-void DoHit(long ctlID)
+void DoHit(long ctlID, CtlRecHndl ctlHandle)
 {
+    CtlRecHndl oldMenuBar;
+    Word menuItem;
+
     if (!wPtr)  /* shouldn't happen */
         return;
 
@@ -429,6 +445,21 @@ void DoHit(long ctlID)
         DoConnect();
     } else if (ctlID == saveAliasBtn) {
         DoSave();
+    } else if (ctlID == optionsPopUp) {
+        oldMenuBar = GetMenuBar();
+        SetMenuBar(ctlHandle);
+        menuItem = GetCtlValue(ctlHandle);
+        
+        if (menuItem == useLargeReadsItem) {
+            flags ^= fLargeReads;
+            CheckMItem((flags & fLargeReads) ? TRUE : FALSE, useLargeReadsItem);
+        } else if (menuItem == forceAFP22Item) {
+            flags ^= fForceAFP22;
+            CheckMItem((flags & fForceAFP22) ? TRUE : FALSE, forceAFP22Item);
+        }
+        
+        SetCtlValue(afpOverTCPOptionsItem, ctlHandle);
+        SetMenuBar(oldMenuBar);
     }
     
     return;
@@ -488,16 +519,25 @@ ret:
     SetPort(port);
 }
 
+void DoCreate(WindowPtr windPtr)
+{
+    int mode;
+    
+    wPtr = windPtr;
+    mode = (GetMasterSCB() & scbColorMode) ? 640 : 320;
+    NewControl2(wPtr, resourceToResource, mode);
+}
+
 LongWord cdevMain (LongWord data2, LongWord data1, Word message)
 {
     long result = 0;
 
     switch(message) {
-    case MachineCDEV:   result = DoMachine();       break;
-    case HitCDEV:       DoHit(data2);               break;
-    case EditCDEV:      DoEdit(data1 & 0xFFFF);     break;
-    case InitCDEV:      wPtr = (WindowPtr)data1;    break;
-    case CloseCDEV:     wPtr = NULL;                break;
+    case MachineCDEV:   result = DoMachine();               break;
+    case HitCDEV:       DoHit(data2, (CtlRecHndl)data1);    break;
+    case EditCDEV:      DoEdit(data1 & 0xFFFF);             break;
+    case CreateCDEV:    DoCreate((WindowPtr)data1);         break;
+    case CloseCDEV:     wPtr = NULL;                        break;
     case EventsCDEV:    /* Now done in assembly for speed.  Equivalent to: */
                         /* modifiers = ((EventRecordPtr)data1)->modifiers; */
                         break;

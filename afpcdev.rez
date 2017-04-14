@@ -1,7 +1,7 @@
 #include "types.rez"
 
 resource rCDEVFlags (1) {
-    wantMachine+wantHit+wantInit+wantClose+wantEvents+wantEdit,
+    wantMachine+wantHit+wantClose+wantEvents+wantEdit+wantCreate,
     1,                          /* enabled */
     1,                          /* version */
     1,                          /* min ROM version */
@@ -68,28 +68,48 @@ resource rIcon (1) {
 #define urlLine             3
 #define saveAliasBtn        4
 #define connectBtn          1
+#define optionsPopUp        6
+#define trianglePic         7
 
 #define helpTxt             5
 
 #define saveFilePrompt      100
 
+#define optionsMenu             300
+#define afpOverTCPOptionsItem   301
+#define useLargeReadsItem       302
+#define forceAFP22Item          303
+
 /*
- * Controls in the control panel window
+ * Controls in the control panel window (for 640 mode or 320 mode)
  */
-resource rControlList (1) {
+resource rControlList (640) {
     {
         cdevWindow+serverAddressTxt,
         cdevWindow+urlLine,
         cdevWindow+saveAliasBtn,
-        cdevWindow+connectBtn
+        cdevWindow+connectBtn,
+        cdevWindow+trianglePic,
+        cdevWindow+optionsPopUp
+    };
+};
+
+resource rControlList (320) {
+    {
+        cdevWindow+serverAddressTxt,
+        cdevWindow+urlLine,
+        cdevWindow+saveAliasBtn,
+        cdevWindow+connectBtn,
+        cdevWindow+trianglePic+320,
+        cdevWindow+optionsPopUp+320
     };
 };
 
 resource rControlTemplate (cdevWindow+serverAddressTxt) {
     serverAddressTxt,                       /* control ID */
-    {4, 10, 15, 310},                       /* control rect */
+    {4, 10, 15, 270},                       /* control rect */
     statTextControl {{
-        0,                                  /* flags */
+        fBlastText,                         /* flags */
         $1000+RefIsResource,                /* moreFlags */
         0,                                  /* refCon */
         cdevWindow+serverAddressTxt         /* title ref */
@@ -142,6 +162,100 @@ resource rControlTemplate (cdevWindow+connectBtn) {
 
 resource rPString(cdevWindow+connectBtn) { "Connect" };
 
+/* Options menu pop-up -- separate versions for 640 mode and 320 mode */
+resource rControlTemplate (cdevWindow+optionsPopUp) {
+    optionsPopUp,
+    {5, 282, 13, 310 },
+    PopUpControl {{
+        fDontDrawTitle+fDontDrawResult,
+        fCtlProcNotPtr+RefIsResource/*+fDrawPopDownIcon*/,
+        0,
+        0,
+        optionsMenu,                        /* menu ref */
+        afpOverTCPOptionsItem,              /* initial value */
+        0
+    }};
+};
+
+resource rControlTemplate (cdevWindow+optionsPopUp+ 320) {
+    optionsPopUp,
+    {5, 296, 13, 310 },
+    PopUpControl {{
+        fDontDrawTitle+fDontDrawResult,
+        fCtlProcNotPtr+RefIsResource/*+fDrawPopDownIcon*/,
+        0,
+        0,
+        optionsMenu,                        /* menu ref */
+        afpOverTCPOptionsItem,              /* initial value */
+        0
+    }};
+};
+
+/* Triangle to draw on options pop-up */
+resource rControlTemplate (cdevWindow+trianglePic) {
+    trianglePic,
+    {7, 286, 11, 302},
+    PictureControl {{
+        CtlInactive,
+        fCtlProcNotPtr+RefIsResource,
+        0,
+        trianglePic                         /* picture reference */
+    }};
+};
+
+resource rControlTemplate (cdevWindow+trianglePic+320) {
+    trianglePic,
+    {7, 298, 0, 0},
+    PictureControl {{
+        CtlInactive,
+        fCtlProcNotPtr+RefIsResource,
+        0,
+        trianglePic                         /* picture reference */
+    }};
+};
+
+data rPicture (trianglePic) {
+    $"8000 0000 0000 0400 1000 1182 0100 0A00"
+    $"01C0 01C0 FF3F FF3F 9000 8000 0000 0400"
+    $"0000 0000 0400 1000 0000 0000 0400 1000"
+    $"0000 0000 0400 1000 0000 0000 0000 F000"
+    $"000F FF00 00FF FFF0 0FFF"
+};
+
+resource rMenu (optionsMenu) {
+    optionsMenu,                            /* menu ID */
+    refIsResource*menuTitleRefShift + refIsResource*itemRefShift,
+    optionsMenu,                            /* menu title ref (not drawn) */
+    {afpOverTCPOptionsItem, useLargeReadsItem, forceAFP22Item};
+};
+resource rPString(optionsMenu,noCrossBank) { "" };
+
+resource rMenuItem (afpOverTCPOptionsItem) {
+    afpOverTCPOptionsItem,                  /* menu item ID */
+    "","",
+    0,
+    fDisabled+refIsResource*itemTitleRefShift,
+    afpOverTCPOptionsItem                   /* menu item title ref */
+};
+resource rPString(afpOverTCPOptionsItem,noCrossBank) { "AFP Over TCP Options:" };
+
+resource rMenuItem (useLargeReadsItem) {
+    useLargeReadsItem,                      /* menu item ID */
+    "","",
+    $12,
+    refIsResource*itemTitleRefShift,
+    useLargeReadsItem                       /* menu item title ref */
+};
+resource rPString(useLargeReadsItem,noCrossBank) { "Use Large Reads" };
+             
+resource rMenuItem (forceAFP22Item) {
+    forceAFP22Item,                         /* menu item ID */
+    "","",
+    0,
+    refIsResource*itemTitleRefShift,
+    forceAFP22Item                          /* menu item title ref */
+};
+resource rPString(forceAFP22Item,noCrossBank) { "Force AFP Version 2.2" };
 
 /*
  * Controls in the help window
