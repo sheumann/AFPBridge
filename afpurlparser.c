@@ -1,7 +1,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "afpurlparser.h"
-
+#include "strncasecmp.h"
 
 #ifdef AFPURLPARSER_TEST
 # include <stdio.h>
@@ -10,17 +10,6 @@
 #  pragma noroot
 # endif
 #endif
-
-int strncasecmp(const char *s1, const char *s2, size_t n)
-{
-    while (tolower(*s1) == tolower(*s2) && *s1 != 0 && n > 1) {
-        s1++;
-        s2++;
-        n--;
-    }
-    
-    return (int)*s1 - (int)*s2;
-}
 
 static int hextonum(char c) {
     if (c >= '0' && c <= '9')

@@ -13,6 +13,9 @@ typedef struct ATIPMapping {
     /* IP address/port */
     LongWord ipAddr;
     Word port;
+    
+    /* Flags for AFP over TCP (defined in afpoptions.h) */
+    unsigned int flags;
 } ATIPMapping;
 
 extern struct ATIPMapping atipMapping;

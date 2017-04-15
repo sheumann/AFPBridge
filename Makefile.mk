@@ -4,7 +4,7 @@ COMMAND = $(!eq,$(CMNDNAME),$(CC) $(CMNDNAME) $(USEORCALIBS)&&$(CC)) $(CMNDARGS)
 
 CFLAGS = -i -w -O95
 
-DSITEST_OBJS = dsitest.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o cmdproc.o installcmds.o
+DSITEST_OBJS = dsitest.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o cmdproc.o installcmds.o afpoptions.o strncasecmp.o
 DSITEST_PROG = dsitest
 
 MOUNTAFP_OBJS = afpmounter.o callat.o endian.o
@@ -13,10 +13,10 @@ MOUNTAFP_PROG = mountafp
 DUMPCMDTBL_OBJS = dumpcmdtbl.o asmglue.o
 DUMPCMDTBL_PROG = dumpcmdtbl
 
-AFPBRIDGE_OBJS = afpinit.o afpbridge.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o installcmds.o cmdproc.o callat.o
+AFPBRIDGE_OBJS = afpinit.o afpbridge.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o installcmds.o cmdproc.o callat.o afpoptions.o strncasecmp.o
 AFPBRIDGE_PROG = AFPBridge
 
-AFPMOUNTER_OBJS = cdevstart.o afpcdev.o afpurlparser.o
+AFPMOUNTER_OBJS = cdevstart.o afpcdev.o afpurlparser.o afpoptions.o strncasecmp.o
 AFPMOUNTER_RSRC = afpcdev.rez
 AFPMOUNTER_CDEV = AFPMounter
 

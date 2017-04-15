@@ -11,13 +11,15 @@
 #include "aspinterface.h"
 #include "installcmds.h"
 #include "cmdproc.h"
+#include "afpoptions.h"
+#include "strncasecmp.h"
 
 struct ATIPMapping atipMapping;
 
 #define DEFAULT_DSI_PORT 548
 
 static char ATIPTypeName[] = "\pAFPServer";
-static char ATIPZoneName[] = "\pAFP over TCP";
+static char DefaultZoneName[] = "\p*";
 
 // Next numbers to use for new mappings
 static int nextNode = 1;
@@ -39,15 +41,16 @@ LongWord DoLookupName(NBPLookupNameRec *commandRec) {
     NBPLUNameBufferRec *resultBuf;
     LongWord initialTime;
     Word stateReg;
+    unsigned int flags;
     
     stateReg = ForceRomIn();
     
     // Length needed for result, assuming the request is for our type/zone
     count = offsetof(NBPLUNameBufferRec, entityName) 
-            + ((EntName*)commandRec->entityPtr)->buffer[0]
-            + ATIPTypeName[0] + ATIPZoneName[0];  
+            + ((EntName*)commandRec->entityPtr)->buffer[0] + 1
+            + ATIPTypeName[0] + 1 + DefaultZoneName[0] + 1;  
     if (count > commandRec->bufferLength)
-        return_error(nbpBufferErr);
+        goto passThrough;
 
     resultBuf = (NBPLUNameBufferRec *)commandRec->bufferPtr;
 
@@ -69,10 +72,19 @@ LongWord DoLookupName(NBPLookupNameRec *commandRec) {
         *dest++ = ATIPTypeName[count];
     }
     nameLen = *curr;
+    flags = 0xFFFF;
+    for (count = 0; afpOptions[count].zoneString != NULL; count++) {
+        if (strncasecmp(afpOptions[count].zoneString, curr+1, nameLen) == 0) {
+            flags = afpOptions[count].flags;
+            break;
+        }
+    }
+    if (flags == 0xFFFF)
+        goto passThrough;
+
+    nameLen = *DefaultZoneName;
     for (count = 0; count <= nameLen; count++) {
-        if (toupper(*curr++) != toupper(ATIPZoneName[count]))
-            goto passThrough;
-        *dest++ = ATIPTypeName[count];
+        *dest++ = DefaultZoneName[count];
     }
     
     if (TCPIPValidateIPString(&resultBuf->entityName.buffer[0])) {
@@ -138,6 +150,7 @@ LongWord DoLookupName(NBPLookupNameRec *commandRec) {
         nextSocket = 1;
 
 haveMapping:
+    atipMapping.flags = flags;
     resultBuf->netNum = atipMapping.networkNumber;
     resultBuf->nodeNum = atipMapping.node;
     resultBuf->socketNum = atipMapping.socket;

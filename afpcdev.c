@@ -19,7 +19,9 @@
 #include <desk.h>
 #include <menu.h>
 #include <finder.h>
+#include "afpoptions.h"
 #include "afpurlparser.h"
+#include "strncasecmp.h"
 #include "cdevutil.h"
 
 #define MachineCDEV     1
@@ -75,8 +77,6 @@ typedef struct EasyMountRec {
 
 EasyMountRec easyMountRec;
 
-char afpOverTCPZone[] = "AFP over TCP";
-
 typedef struct GSString1024 {
     Word length;
     char text[1024];
@@ -105,10 +105,7 @@ SFReplyRec2 sfReplyRec;
 
 Word modifiers = 0;
 
-#define fLargeReads     0x0001
-#define fForceAFP22     0x0002
-
-Word flags = fLargeReads; /* for AFP over TCP connections */
+unsigned int flags = fLargeReads; /* for AFP over TCP connections */
 
 void fillEasyMountRec(char *server, char *zone, char *volume, char *user,
                       char *password, char *volpass)
@@ -233,6 +230,8 @@ int writeAlias(GSString255Ptr file)
 
 void finalizeURLParts(AFPURLParts *urlParts)
 {
+    unsigned int i;
+
     if (urlParts->server == NULL)
         urlParts->server = "";
     if (urlParts->zone == NULL)
@@ -262,7 +261,12 @@ void finalizeURLParts(AFPURLParts *urlParts)
     }
 
     if (urlParts->protocol == proto_TCP) {
-        urlParts->zone = afpOverTCPZone;
+        urlParts->zone = afpOptions[0].zoneString;
+        for (i = 0; afpOptions[i].zoneString != NULL; i++) {
+            if (afpOptions[i].flags == flags) {
+                urlParts->zone = afpOptions[i].zoneString;
+            }
+        }
     }
 }
 
