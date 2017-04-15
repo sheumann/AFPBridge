@@ -14,6 +14,7 @@
 #include "installcmds.h"
 #include "atipmapping.h"
 #include "afpoptions.h"
+#include "strncasecmp.h"
 
 typedef struct FPReadRec {
     Word CommandCode;   /* includes pad byte */
@@ -25,6 +26,12 @@ typedef struct FPReadRec {
 } FPReadRec;
 
 #define kFPRead 27
+#define kFPLogin 18
+
+/* For forced AFP 2.2 login */
+static Byte loginBuf[100];
+static const Byte afp20VersionStr[] = "\pAFPVersion 2.0";
+static const Byte afp22VersionStr[] = "\pAFP2.2";
 
 static void EndSession(Session *sess, Boolean callAttnRoutine);
 
@@ -246,6 +253,34 @@ static void DoSPCommand(Session *sess, ASPCommandRec *commandRec) {
                     htonl(sess->replyBufLen);
             }
         }
+    }
+    /*
+     * If requested, replace AFP 2.0 login requests with otherwise-identical
+     * AFP 2.2 login requests.  This provides compatibility with some servers
+     * that don't support AFP 2.0 over TCP.  The protocols are similar enough
+     * that it seems to work, although there could be issues.
+     */ 
+    else if ((sess->atipMapping.flags & fForceAFP22)
+             && commandRec->cmdBlkLength >= sizeof(afp20VersionStr)
+             && *((Byte*)commandRec->cmdBlkAddr) == kFPLogin
+             && commandRec->cmdBlkLength <= sizeof(loginBuf)
+             && strncasecmp(afp20VersionStr, (Byte*)commandRec->cmdBlkAddr + 1, 
+                        sizeof(afp20VersionStr) - 1) == 0)
+    {
+        memcpy(loginBuf, (Byte*)commandRec->cmdBlkAddr,
+               commandRec->cmdBlkLength);
+        loginBuf[sizeof(afp20VersionStr)-sizeof(afp22VersionStr)] = kFPLogin;
+        memcpy(&loginBuf[sizeof(afp20VersionStr)-sizeof(afp22VersionStr)+1],
+               afp22VersionStr,
+               sizeof(afp22VersionStr) - 1);
+
+        sess->request.totalDataLength =
+            htonl(commandRec->cmdBlkLength
+                  -sizeof(afp20VersionStr)+sizeof(afp22VersionStr));
+        SendDSIMessage(sess, &sess->request, 
+                       loginBuf+sizeof(afp20VersionStr)-sizeof(afp22VersionStr),
+                       NULL);
+        return;
     }
     
     /* Mask off high byte of addresses because PFI (at least) may
