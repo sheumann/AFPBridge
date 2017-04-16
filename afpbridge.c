@@ -127,7 +127,8 @@ void pollTask(void) {
     IncBusyFlag();
     stateReg = ForceRomIn();
     
-    PollAllSessions();
+    if (OS_KIND == KIND_GSOS)
+        PollAllSessions();
     runQRec.period = 4*60;
     
     RestoreStateReg(stateReg);

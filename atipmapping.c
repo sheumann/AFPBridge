@@ -45,6 +45,9 @@ LongWord DoLookupName(NBPLookupNameRec *commandRec) {
     
     stateReg = ForceRomIn();
     
+    if (OS_KIND != KIND_GSOS)
+        goto passThrough;
+    
     // Length needed for result, assuming the request is for our type/zone
     count = offsetof(NBPLUNameBufferRec, entityName) 
             + ((EntName*)commandRec->entityPtr)->buffer[0] + 1

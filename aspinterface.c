@@ -60,6 +60,11 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
         {
             goto callOrig;
         }
+        
+        if (OS_KIND != KIND_GSOS) {
+            CompleteASPCommand(commandRec, aspNetworkErr);
+            goto ret;
+        }
 
         for (i = 0; i < MAX_SESSIONS; i++) {
             if (sessionTbl[i].dsiStatus == needsReset)
@@ -93,6 +98,11 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
             goto callOrig;
         }
         
+        if (OS_KIND != KIND_GSOS) {
+            CompleteASPCommand(commandRec, aspNetworkErr);
+            goto ret;
+        }
+
         /*
          * Hack to avoid hangs/crashes related to the AppleShare FST's
          * asynchronous polling to check if volumes have been modified.
