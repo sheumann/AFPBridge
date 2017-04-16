@@ -2,12 +2,16 @@
 
 #include <appletalk.h>
 #include <locator.h>
+#include <misctool.h>
+#include <tcpip.h>
 #include <desk.h>
 #include <orca.h>
 #include <gsos.h>
 #include "installcmds.h"
 #include "aspinterface.h"
 #include "asmglue.h"
+
+const char bootInfoString[] = "AFPBridge             v1.0b1";
 
 extern Word *unloadFlagPtr;
 
@@ -48,9 +52,16 @@ int main(void) {
             goto error;
     }
 
-    LoadOneTool(54, 0x0300);    /* load Marinetti 3.0+ */
-    if (toolerror())
+    /*
+     * Load Marinetti.
+     * We may get an error if the TCPIP init isn't loaded yet, but we ignore it.
+     * The tool stub is still loaded in that case, which is enough for now.
+     */
+    LoadOneTool(54, 0x0200);
+    if (toolerror() && toolerror() != terrINITNOTFOUND)
         goto error;
+    
+    ShowBootInfo(bootInfoString, NULL);
 
     /*
      * Put Marinetti in the default TPT so its tool stub won't be unloaded,
