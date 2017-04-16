@@ -59,6 +59,9 @@ typedef struct Session {
     
     /* AppleTalk<->IP address mapping used for this session */
     ATIPMapping atipMapping;
+    
+    /* Attention routine header (followed by the routine) */
+    ASPAttentionHeaderRec *attention;
 } Session;
 
 #endif

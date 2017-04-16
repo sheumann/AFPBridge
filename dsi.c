@@ -155,9 +155,10 @@ top:
         if (sess->reply.command == DSIAttention) {
             attentionReplyRec.requestID = sess->reply.requestID;
             SendDSIMessage(sess, &attentionReplyRec, NULL, NULL);
-            //TODO call attention routine.
+            CallAttentionRoutine(sess, aspAttenNormal, sess->attentionCode);
         } else if (sess->reply.command == DSICloseSession) {
-            // TODO handle close
+            EndASPSession(sess, aspAttenClosed);
+            return;
         } else if (sess->reply.command == DSITickle) {
             tickleRequestRec.requestID = htons(sess->nextRequestID++);
             SendDSIMessage(sess, &tickleRequestRec, NULL, NULL);

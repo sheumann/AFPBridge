@@ -33,8 +33,6 @@ static Byte loginBuf[100];
 static const Byte afp20VersionStr[] = "\pAFPVersion 2.0";
 static const Byte afp22VersionStr[] = "\pAFP2.2";
 
-static void EndSession(Session *sess, Byte attentionCode);
-
 static void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec);
 static void DoSPOpenSession(Session *sess);
 static void DoSPCloseSession(Session *sess);
@@ -65,7 +63,7 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
 
         for (i = 0; i < MAX_SESSIONS; i++) {
             if (sessionTbl[i].dsiStatus == needsReset)
-                EndSession(&sessionTbl[i], 0);
+                EndASPSession(&sessionTbl[i], 0);
         }
         for (i = 0; i < MAX_SESSIONS; i++) {
             if (sessionTbl[i].dsiStatus == unused)
@@ -85,6 +83,11 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
         }
         sess->dsiStatus = awaitingHeader;
         InitReadTCP(sess, DSI_HEADER_SIZE, &sess->reply);
+        
+        if (commandRec->command==aspOpenSessionCommand) {
+            sess->attention = (ASPAttentionHeaderRec *)
+                ((ASPOpenSessionRec*)commandRec)->attnRtnAddr;
+        }
     } else {
         if (commandRec->refNum < SESSION_NUM_START) {
             goto callOrig;
@@ -324,7 +327,7 @@ void FlagFatalError(Session *sess, Word errorCode) {
         CompleteCurrentASPCommand(sess, errorCode);
     }
     
-    EndSession(sess, aspAttenTimeout);
+    EndASPSession(sess, aspAttenTimeout);
 }
 
 
@@ -377,7 +380,7 @@ void CompleteCurrentASPCommand(Session *sess, Word result) {
     if (sess->spCommandRec->command == aspGetStatusCommand 
         || sess->spCommandRec->command == aspCloseSessionCommand)
     {
-        EndSession(sess, 0);
+        EndASPSession(sess, 0);
     } else {
         sess->commandPending = FALSE;
         if (sess->dsiStatus != error) {
@@ -403,13 +406,25 @@ static void CompleteASPCommand(SPCommandRec *commandRec, Word result) {
 }
 
 
-static void EndSession(Session *sess, Byte attentionCode) {
+void EndASPSession(Session *sess, Byte attentionCode) {
     if (attentionCode != 0) {
-        // TODO call the attention routine to report end of session
+        CallAttentionRoutine(sess, attentionCode, 0);
     }
     
     EndTCPConnection(sess);
     memset(sess, 0, sizeof(*sess));
+}
+
+void CallAttentionRoutine(Session *sess, Byte attenType, Word atten) {
+    if (sess->attention == NULL)
+        return;
+    
+    sess->attention->sessionRefNum = (sess - sessionTbl) + SESSION_NUM_START;
+    sess->attention->attenType = attenType;
+    sess->attention->atten = atten;
+    
+    /* Call attention routine like completion routine */
+    CallCompletionRoutine((void *)(sess->attention + 1));
 }
 
 void PollAllSessions(void) {
@@ -423,7 +438,7 @@ void PollAllSessions(void) {
             break;
         
         case needsReset:
-            EndSession(&sessionTbl[i], 0);
+            EndASPSession(&sessionTbl[i], 0);
             break;
         }
     }
@@ -438,7 +453,7 @@ void CloseAllSessions(Byte attentionCode) {
         sess = &sessionTbl[i];
         if (sess->dsiStatus != unused) {
             DoSPCloseSession(sess);
-            EndSession(sess, attentionCode);
+            EndASPSession(sess, attentionCode);
         }
     }
 }
