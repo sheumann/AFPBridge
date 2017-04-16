@@ -33,11 +33,11 @@ static Byte loginBuf[100];
 static const Byte afp20VersionStr[] = "\pAFPVersion 2.0";
 static const Byte afp22VersionStr[] = "\pAFP2.2";
 
-static void EndSession(Session *sess, Boolean callAttnRoutine);
+static void EndSession(Session *sess, Byte attentionCode);
 
 static void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec);
-static void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec);
-static void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec);
+static void DoSPOpenSession(Session *sess);
+static void DoSPCloseSession(Session *sess);
 static void DoSPCommand(Session *sess, ASPCommandRec *commandRec);
 static void DoSPWrite(Session *sess, ASPWriteRec *commandRec);
 
@@ -120,10 +120,10 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
         DoSPGetStatus(sess, (ASPGetStatusRec *)commandRec);
         break;
     case aspOpenSessionCommand:
-        DoSPOpenSession(sess, (ASPOpenSessionRec *)commandRec);
+        DoSPOpenSession(sess);
         break;
     case aspCloseSessionCommand:
-        DoSPCloseSession(sess, (ASPCloseSessionRec *)commandRec);
+        DoSPCloseSession(sess);
         break;
     case aspCommandCommand:
         DoSPCommand(sess, (ASPCommandRec *)commandRec);
@@ -171,7 +171,7 @@ static void DoSPGetStatus(Session *sess, ASPGetStatusRec *commandRec) {
     SendDSIMessage(sess, &sess->request, &kFPGetSrvrInfo, NULL);
 }
 
-static void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec) {
+static void DoSPOpenSession(Session *sess) {
     sess->request.flags = DSI_REQUEST;
     sess->request.command = DSIOpenSession;
     sess->request.requestID = htons(sess->nextRequestID++);
@@ -183,7 +183,7 @@ static void DoSPOpenSession(Session *sess, ASPOpenSessionRec *commandRec) {
     SendDSIMessage(sess, &sess->request, NULL, NULL);
 }
 
-static void DoSPCloseSession(Session *sess, ASPCloseSessionRec *commandRec) {
+static void DoSPCloseSession(Session *sess) {
     sess->request.flags = DSI_REQUEST;
     sess->request.command = DSICloseSession;
     sess->request.requestID = htons(sess->nextRequestID++);
@@ -316,7 +316,7 @@ void FlagFatalError(Session *sess, Word errorCode) {
         CompleteASPCommand(sess, errorCode);
     }
     
-    EndSession(sess, TRUE);
+    EndSession(sess, aspAttenTimeout);
 }
 
 
@@ -369,7 +369,7 @@ void CompleteASPCommand(Session *sess, Word result) {
     if (sess->spCommandRec->command == aspGetStatusCommand 
         || sess->spCommandRec->command == aspCloseSessionCommand)
     {
-        EndSession(sess, FALSE);
+        EndSession(sess, 0);
     } else {
         sess->commandPending = FALSE;
         if (sess->dsiStatus != error) {
@@ -386,8 +386,8 @@ void CompleteASPCommand(Session *sess, Word result) {
 }
 
 
-static void EndSession(Session *sess, Boolean callAttnRoutine) {
-    if (callAttnRoutine) {
+static void EndSession(Session *sess, Byte attentionCode) {
+    if (attentionCode != 0) {
         // TODO call the attention routine to report end of session
     }
     
@@ -404,3 +404,18 @@ void PollAllSessions(void) {
         }
     }
 }
+
+/* Close all sessions -- used when we're shutting down */
+void CloseAllSessions(Byte attentionCode) {
+    unsigned int i;
+    Session *sess;
+
+    for (i = 0; i < MAX_SESSIONS; i++) {
+        sess = &sessionTbl[i];
+        if (sess->dsiStatus != unused) {
+            DoSPCloseSession(sess);
+            EndSession(sess, attentionCode);
+        }
+    }
+}
+

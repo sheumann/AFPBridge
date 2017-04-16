@@ -18,6 +18,7 @@ extern Word *unloadFlagPtr;
 FSTInfoRecGS fstInfoRec;
 
 void pollTask(void);
+void notificationProc(void);
 
 static struct RunQRec {
     Long reserved1;
@@ -28,6 +29,17 @@ static struct RunQRec {
     void (*proc)(void);
 } runQRec;
 
+static struct NotificationProcRec {
+    Long reserved1;
+    Word reserved2;
+    Word Signature;
+    Long Event_flags;
+    Long Event_code;
+    Byte jml;
+    void (*proc)(void);
+} notificationProcRec;
+
+NotifyProcRecGS addNotifyProcRec;
 
 void setUnloadFlag(void) {
     if (*unloadFlagPtr == 0)
@@ -83,6 +95,14 @@ int main(void) {
     runQRec.proc = pollTask;
     AddToRunQ((Pointer)&runQRec);
     
+    notificationProcRec.Signature = 0xA55A;
+    notificationProcRec.Event_flags = 0x20; /* shutdown */
+    notificationProcRec.jml = 0x5C;
+    notificationProcRec.proc = notificationProc;
+    addNotifyProcRec.pCount = 1;
+    addNotifyProcRec.procPointer = (ProcPtr)&notificationProcRec;
+    AddNotifyProcGS(&addNotifyProcRec);
+    
     return;
 
 error:
@@ -101,6 +121,27 @@ void pollTask(void) {
     PollAllSessions();
     runQRec.period = 4*60;
     
+    RestoreStateReg(stateReg);
+    DecBusyFlag();
+}
+#pragma databank 0
+
+
+/*
+ * Notification procedure called at shutdown time.
+ * We try to notify the servers that we're closing the connections.
+ * This only works if Marinetti is still active, i.e. if its own
+ * shutdown notification procedure hasn't run yet.
+ */
+#pragma databank 1
+void notificationProc(void) {
+    Word stateReg;
+
+    IncBusyFlag();
+    stateReg = ForceRomIn();
+
+    CloseAllSessions(0);
+
     RestoreStateReg(stateReg);
     DecBusyFlag();
 }

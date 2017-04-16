@@ -67,19 +67,9 @@ BOOLEAN StartTCPConnection(Session *sess) {
 }
 
 void EndTCPConnection(Session *sess) {
-    srBuff mySRBuff;
-    LongWord initialTime;
-
     if (sess->tcpLoggedIn) {
-        initialTime = GetTick();
-        do {
-            TCPIPPoll();
-        } while (TCPIPStatusTCP(sess->ipid, &mySRBuff) == tcperrOK
-                 && !toolerror()
-                 && mySRBuff.srState == TCPSESTABLISHED
-                 && mySRBuff.srSndQueued > 0
-                 && GetTick()-initialTime < 15*60);
-
+        TCPIPCloseTCP(sess->ipid);
+        TCPIPPoll();
         TCPIPAbortTCP(sess->ipid);
         TCPIPLogout(sess->ipid);
         sess->tcpLoggedIn = FALSE;
