@@ -63,6 +63,10 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
         }
 
         for (i = 0; i < MAX_SESSIONS; i++) {
+            if (sessionTbl[i].dsiStatus == needsReset)
+                EndSession(&sessionTbl[i], 0);
+        }
+        for (i = 0; i < MAX_SESSIONS; i++) {
             if (sessionTbl[i].dsiStatus == unused)
                 break;
         }
@@ -399,8 +403,15 @@ void PollAllSessions(void) {
     unsigned int i;
 
     for (i = 0; i < MAX_SESSIONS; i++) {
-        if (sessionTbl[i].dsiStatus != unused) {
+        switch (sessionTbl[i].dsiStatus) {
+        case awaitingHeader:
+        case awaitingPayload:
             PollForData(&sessionTbl[i]);
+            break;
+        
+        case needsReset:
+            EndSession(&sessionTbl[i], 0);
+            break;
         }
     }
 }
@@ -419,3 +430,20 @@ void CloseAllSessions(Byte attentionCode) {
     }
 }
 
+/*
+ * Reset the state of all sessions.
+ * Used when control-reset is pressed in P8 mode.  We can't call Marinetti
+ * in P8 mode, but we also don't want to just leak any ipids in use, so
+ * we flag sessions that should be reset when we're back in GS/OS.
+ */
+#pragma databank 1
+void ResetAllSessions(void) {
+    unsigned int i;
+
+    for (i = 0; i < MAX_SESSIONS; i++) {
+        if (sessionTbl[i].dsiStatus != unused) {
+            sessionTbl[i].dsiStatus = needsReset;
+        }
+    }
+}
+#pragma databank 0

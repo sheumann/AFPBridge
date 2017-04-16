@@ -19,7 +19,8 @@ typedef enum DSISessionStatus {
     unused = 0,
     awaitingHeader,
     awaitingPayload,
-    error
+    error,
+    needsReset  /* set after control-reset in P8 mode */
 } DSISessionStatus;
 
 typedef struct Session {

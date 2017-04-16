@@ -14,6 +14,7 @@
 const char bootInfoString[] = "AFPBridge             v1.0b1";
 
 extern Word *unloadFlagPtr;
+extern void resetRoutine(void);
 
 FSTInfoRecGS fstInfoRec;
 
@@ -40,6 +41,11 @@ static struct NotificationProcRec {
 } notificationProcRec;
 
 NotifyProcRecGS addNotifyProcRec;
+
+LongWord *SoftResetPtr = (LongWord *)0xE11010;
+extern LongWord oldSoftReset;
+
+#define JML 0x5C
 
 void setUnloadFlag(void) {
     if (*unloadFlagPtr == 0)
@@ -91,17 +97,20 @@ int main(void) {
 
     runQRec.period = 1;
     runQRec.signature = 0xA55A;
-    runQRec.jml = 0x5C;
+    runQRec.jml = JML;
     runQRec.proc = pollTask;
     AddToRunQ((Pointer)&runQRec);
     
     notificationProcRec.Signature = 0xA55A;
     notificationProcRec.Event_flags = 0x20; /* shutdown */
-    notificationProcRec.jml = 0x5C;
+    notificationProcRec.jml = JML;
     notificationProcRec.proc = notificationProc;
     addNotifyProcRec.pCount = 1;
     addNotifyProcRec.procPointer = (ProcPtr)&notificationProcRec;
     AddNotifyProcGS(&addNotifyProcRec);
+    
+    oldSoftReset = *SoftResetPtr;
+    *SoftResetPtr = ((LongWord)&resetRoutine << 8) | JML;
     
     return;
 

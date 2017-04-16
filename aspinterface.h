@@ -20,5 +20,6 @@ void FinishASPCommand(Session *sess);
 void FlagFatalError(Session *sess, Word errorCode);
 void PollAllSessions(void);
 void CloseAllSessions(Byte attentionCode);
+void ResetAllSessions(void);
 
 #endif
