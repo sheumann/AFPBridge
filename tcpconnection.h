@@ -3,7 +3,7 @@
 
 #include "session.h"
 
-BOOLEAN StartTCPConnection(Session *sess);
+Word StartTCPConnection(Session *sess);
 void EndTCPConnection(Session *sess);
 
 #endif

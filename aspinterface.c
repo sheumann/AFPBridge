@@ -41,6 +41,7 @@ static void DoSPCloseSession(Session *sess);
 static void DoSPCommand(Session *sess, ASPCommandRec *commandRec);
 static void DoSPWrite(Session *sess, ASPWriteRec *commandRec);
 
+static void CompleteASPCommand(SPCommandRec *commandRec, Word result);
 
 Session sessionTbl[MAX_SESSIONS];
 
@@ -71,14 +72,15 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
                 break;
         }
         if (i == MAX_SESSIONS) {
-            CompleteASPCommand(sess, aspTooManySessions);
+            CompleteASPCommand(commandRec, aspTooManySessions);
             goto ret;
         }
         sess = &sessionTbl[i];
         sess->spCommandRec = commandRec;
+        sess->commandPending = TRUE;
         
-        if (!StartTCPConnection(sess)) {
-            FlagFatalError(sess, commandRec->result);
+        if ((i = StartTCPConnection(sess)) != 0) {
+            FlagFatalError(sess, i);
             goto ret;
         }
         sess->dsiStatus = awaitingHeader;
@@ -99,24 +101,24 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
         if ((commandRec->async & AT_ASYNC)
             && commandRec->command == aspCommandCommand)
         {
-            commandRec->result = atSyncErr;
-            CallCompletionRoutine((void*)commandRec->completionPtr);
+            CompleteASPCommand(commandRec, atSyncErr);
             goto ret;
         }
         
-        i = commandRec->refNum - SESSION_NUM_START;
-        sess = &sessionTbl[i];
-        sess->spCommandRec = commandRec;
-    }
-
-    // TODO properly handle all cases of getting a command while
-    // one is in progress
-    if (commandRec->command != aspCloseSessionCommand) {
+        sess = &sessionTbl[commandRec->refNum - SESSION_NUM_START];
+        
         if (sess->commandPending) {
-            CompleteASPCommand(sess, aspSessNumErr);
-            goto ret;
+            if (commandRec->command != aspCloseSessionCommand) {
+                CompleteASPCommand(commandRec, aspSessNumErr);
+                goto ret;
+            } else {
+                CompleteCurrentASPCommand(sess, aspSessionClosed);
+            }
         }
-        sess->commandPending = TRUE;
+
+        sess->spCommandRec = commandRec;
+        if (commandRec->command != aspCloseSessionCommand)
+            sess->commandPending = TRUE;
     }
     
     switch (commandRec->command) {
@@ -145,6 +147,8 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
     // if we're here, the call is synchronous -- we must complete it
     
     if (commandRec->command == aspCloseSessionCommand) {
+        /* We don't wait for a reply to close */
+        memset(&sess->reply, 0, sizeof(sess->reply));
         FinishASPCommand(sess);
     } else {
         while (sess->commandPending) {
@@ -317,7 +321,7 @@ void FlagFatalError(Session *sess, Word errorCode) {
     }
 
     if (sess->commandPending) {
-        CompleteASPCommand(sess, errorCode);
+        CompleteCurrentASPCommand(sess, errorCode);
     }
     
     EndSession(sess, aspAttenTimeout);
@@ -332,8 +336,8 @@ void FinishASPCommand(Session *sess) {
     if (dataLength > 0xFFFF) {
         // The IIgs ASP interfaces can't represent lengths over 64k.
         // This should be detected as an error earlier, but let's make sure.
-        sess->spCommandRec->result = aspSizeErr;
-        goto complete;
+        CompleteCurrentASPCommand(sess, aspSizeErr);
+        return;
     }
 
     switch(sess->spCommandRec->command) {
@@ -361,11 +365,11 @@ void FinishASPCommand(Session *sess) {
     }
 
 complete:
-    CompleteASPCommand(sess, 0);
+    CompleteCurrentASPCommand(sess, 0);
 }
 
 /* Actions to complete a command, whether successful or not */
-void CompleteASPCommand(Session *sess, Word result) {
+void CompleteCurrentASPCommand(Session *sess, Word result) {
     SPCommandRec *commandRec;
 
     commandRec = sess->spCommandRec;
@@ -382,6 +386,15 @@ void CompleteASPCommand(Session *sess, Word result) {
         }
     }
     
+    commandRec->result = result;
+    
+    if ((commandRec->async & AT_ASYNC) && commandRec->completionPtr != NULL) {
+        CallCompletionRoutine((void *)commandRec->completionPtr);
+    }
+}
+
+/* For use in error cases not involving the session's current command */
+static void CompleteASPCommand(SPCommandRec *commandRec, Word result) {
     commandRec->result = result;
     
     if ((commandRec->async & AT_ASYNC) && commandRec->completionPtr != NULL) {

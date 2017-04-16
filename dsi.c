@@ -142,7 +142,7 @@ top:
                 // Maybe we should do something with them?
                 FinishASPCommand(sess);
             } else {
-                CompleteASPCommand(sess, aspBufErr);
+                CompleteCurrentASPCommand(sess, aspBufErr);
             }
         } else {
             FinishASPCommand(sess);

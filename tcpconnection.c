@@ -11,10 +11,10 @@
 /* Make a TCP connection to the address mapped to the specified AT address.
  * sess->spCommandRec should be an SPGetStatus or SPOpenSession command.
  *
- * On success, returns TRUE and sets sess->ipid.
- * On failure, returns FALSE and sets commandRec->result to an error code.
+ * On success, returns 0 and sets sess->ipid.
+ * On failure, returns an ASP error code.
  */
-BOOLEAN StartTCPConnection(Session *sess) {
+Word StartTCPConnection(Session *sess) {
     Word tcperr;
     ASPOpenSessionRec *commandRec;
     srBuff mySRBuff;
@@ -26,28 +26,22 @@ BOOLEAN StartTCPConnection(Session *sess) {
     
     if (TCPIPGetConnectStatus() == FALSE) {
         TCPIPConnect(NULL);
-        if (toolerror()) {
-            commandRec->result = aspNetworkErr;
-            return FALSE;
-        }
+        if (toolerror())
+            return aspNetworkErr;
     }
     
     sess->ipid = 
         TCPIPLogin(userid(), atipMapping.ipAddr, atipMapping.port, 0, 0x40);
-    if (toolerror()) {
-        commandRec->result = aspNetworkErr;
-        return FALSE;
-    }
+    if (toolerror())
+        return aspNetworkErr;
     
     tcperr = TCPIPOpenTCP(sess->ipid);
     if (toolerror()) {
         TCPIPLogout(sess->ipid);
-        commandRec->result = aspNetworkErr;
-        return FALSE;
+        return aspNetworkErr;
     } else if (tcperr != tcperrOK) {
         TCPIPLogout(sess->ipid);
-        commandRec->result = aspNoRespErr;
-        return FALSE;
+        return aspNoRespErr;
     }
     
     initialTime = GetTick();
@@ -58,12 +52,11 @@ BOOLEAN StartTCPConnection(Session *sess) {
     if (mySRBuff.srState != TCPSESTABLISHED) {
         TCPIPAbortTCP(sess->ipid);
         TCPIPLogout(sess->ipid);
-        commandRec->result = aspNoRespErr;
-        return FALSE;
+        return aspNoRespErr;
     }
     
     sess->tcpLoggedIn = TRUE;
-    return TRUE;
+    return 0;
 }
 
 void EndTCPConnection(Session *sess) {
