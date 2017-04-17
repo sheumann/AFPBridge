@@ -1,7 +1,7 @@
 #pragma noroot
 
 #include <AppleTalk.h>
-#include <stdlib.h>
+#include <memory.h>
 #include <orca.h>
 #include <tcpip.h>
 #include "dsiproto.h"
@@ -99,8 +99,9 @@ top:
                     goto top;
                 } else {
                     // handle data too long
-                    sess->junkBuf = malloc(dataLength);
-                    if (sess->junkBuf == NULL) {
+                    sess->junkBuf = *NewHandle(dataLength,
+                                               userid(), attrFixed, 0);
+                    if (toolerror() || sess->junkBuf == NULL) {
                         FlagFatalError(sess, atMemoryErr);
                         return;
                     } else {
@@ -135,7 +136,7 @@ top:
         && sess->reply.command == sess->request.command)
     {
         if (sess->junkBuf != NULL) {
-            free(sess->junkBuf);
+            DisposeHandle(FindHandle(sess->junkBuf));
             sess->junkBuf = NULL;
             if (sess->reply.command == DSIOpenSession) {
                 // We ignore the DSIOpenSession options for now.
