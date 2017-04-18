@@ -98,6 +98,10 @@ LongWord DoLookupName(NBPLookupNameRec *commandRec) {
         hostInfo.cvtPort =
             TCPIPMangleDomainName(0, &resultBuf->entityName.buffer[0]);
     } else {
+        // Make sure we're connected before doing DNS lookup.
+        if (TCPIPGetConnectStatus() == FALSE)
+            TCPIPConnect(NULL);
+
         hostInfo.cvtPort =
             TCPIPMangleDomainName(0xE000, &resultBuf->entityName.buffer[0]);
         TCPIPDNRNameToIP(&resultBuf->entityName.buffer[0], &dnrInfo);
