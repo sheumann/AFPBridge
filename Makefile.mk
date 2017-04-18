@@ -7,6 +7,9 @@ CFLAGS = -i -w -O95
 DSITEST_OBJS = dsitest.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o cmdproc.o installcmds.o afpoptions.o strncasecmp.o
 DSITEST_PROG = dsitest
 
+LISTSESSIONS_OBJS = listsess.o callat.o
+LISTSESSIONS_PROG = listsessions
+
 MOUNTAFP_OBJS = afpmounter.o callat.o endian.o
 MOUNTAFP_PROG = mountafp
 
@@ -32,6 +35,9 @@ $(MOUNTAFP_PROG): $(MOUNTAFP_OBJS)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(DUMPCMDTBL_PROG): $(DUMPCMDTBL_OBJS)
+	$(CC) $(CFLAGS) -o $@ $<
+
+$(LISTSESSIONS_PROG): $(LISTSESSIONS_OBJS)
 	$(CC) $(CFLAGS) -o $@ $<
 
 $(AFPBRIDGE_PROG): $(AFPBRIDGE_OBJS)
