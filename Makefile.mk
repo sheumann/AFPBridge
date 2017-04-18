@@ -13,7 +13,7 @@ MOUNTAFP_PROG = mountafp
 DUMPCMDTBL_OBJS = dumpcmdtbl.o asmglue.o
 DUMPCMDTBL_PROG = dumpcmdtbl
 
-AFPBRIDGE_OBJS = afpinit.o afpbridge.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o installcmds.o cmdproc.o callat.o afpoptions.o strncasecmp.o
+AFPBRIDGE_OBJS = afpinit.o afpbridge.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o installcmds.o cmdproc.o callat.o afpoptions.o strncasecmp.o savenames.o
 AFPBRIDGE_PROG = AFPBridge
 
 AFPMOUNTER_OBJS = cdevstart.o afpcdev.o afpurlparser.o afpoptions.o strncasecmp.o

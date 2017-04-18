@@ -52,6 +52,42 @@ doOrig	short	i		;push original procedure ptr
 	rtl			;jump to it
 	end
 
+pfiLoginCmdProc start
+	lda	cmdRecPtr+2
+	pha
+	lda	cmdRecPtr
+	pha
+jslOldPFILogin entry
+	jsl	jslOldPFILogin	; to be changed
+	rep	#$30		; ensure full native mode
+	jsl	SaveNames
+	rtl
+	end
+
+pfiLogin2CmdProc start
+	lda	cmdRecPtr+2
+	pha
+	lda	cmdRecPtr
+	pha
+jslOldPFILogin2 entry
+	jsl	jslOldPFILogin2	; to be changed
+	rep	#$30		; ensure full native mode
+	jsl	SaveNames
+	rtl
+	end
+
+pfiListSessions2CmdProc start
+	lda	cmdRecPtr+2
+	pha
+	lda	cmdRecPtr
+	pha
+jslOldPFIListSessions2 entry
+	jsl	jslOldPFIListSessions2	; to be changed
+	rep	#$30		; ensure full native mode
+	jsl	InsertCorrectNames
+	rtl
+	end
+
 CallCompletionRoutine start
 	phb
 	jsl	ForceLCBank2	;use LC bank 2
