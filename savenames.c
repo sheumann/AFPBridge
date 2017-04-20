@@ -23,9 +23,14 @@ typedef struct NameRec {
 } NameRec;
 
 #define MAX_ASP_SESSION_NUM 8
+#define MAX_PFI_SESSIONS    8
 
 NameRec aspSessionNames[MAX_ASP_SESSION_NUM + 1];
 NameRec dsiSessionNames[MAX_SESSIONS];
+
+Byte aspActiveFlags[MAX_ASP_SESSION_NUM + 1] = {0};
+Byte dsiActiveFlags[MAX_SESSIONS] = {0};
+Byte extraActive = 0;
 
 static unsigned char emptyStr[1] = {0};
 
@@ -37,6 +42,22 @@ typedef struct ListSessions2Buffer {
     char serverName[32];
     char zoneName[33];
 } ListSessions2Buffer;
+
+
+/* Count number of active sessions (may overestimate) */
+static unsigned int countSess(void) {
+    unsigned int activeCount;
+    unsigned int i;
+    
+    activeCount = extraActive;
+    for (i = 0; i <= MAX_ASP_SESSION_NUM; i++) {
+        activeCount += aspActiveFlags[i];
+    }
+    for (i = 0; i < MAX_SESSIONS; i++) {
+        activeCount += aspActiveFlags[i];
+    }
+    return activeCount;
+}
 
 /*
  * This is called following an FILogin or FILogin2 call, to save the names.
@@ -51,15 +72,29 @@ void SaveNames(PFILogin2Rec *commandRec) {
     
     stateReg = ForceRomIn();
 
-    /* Don't save names for failed connections */
-    if (commandRec->result != 0 && commandRec->result != pfiLoginContErr)
+    /* 
+     * Don't save names for failed connections, but if we get a
+     * "too many sessions" error when there aren't really too many sessions,
+     * then change it to something more appropriate (this can happen when
+     * the ASP/DSI layer returns a network error).
+     */
+    if (commandRec->result != 0 && commandRec->result != pfiLoginContErr) {
+        if (commandRec->result == pfiTooManySessErr
+            && countSess() < MAX_PFI_SESSIONS)
+        {
+            commandRec->result = pfiUnableOpenSessErr;
+        }
         goto ret;
+    }
     
     if (commandRec->sessRefID <= MAX_ASP_SESSION_NUM) {
         nameRec = &aspSessionNames[commandRec->sessRefID];
+        aspActiveFlags[commandRec->sessRefID] = 1;
     } else if (commandRec->sessRefID >= SESSION_NUM_START) {
         nameRec = &dsiSessionNames[commandRec->sessRefID - SESSION_NUM_START];
+        dsiActiveFlags[commandRec->sessRefID - SESSION_NUM_START] = 1;
     } else {
+        extraActive = 255;
         goto ret;
     }
     
