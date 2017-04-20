@@ -1,6 +1,7 @@
 #pragma noroot
 
 #include <AppleTalk.h>
+#include <misctool.h>
 #include <string.h>
 
 #include "session.h"
@@ -48,6 +49,8 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
     Session *sess;
     unsigned int i;
     Word stateReg;
+    LongWord lastActivityTime;
+    LongWord lastReadCount;
     
     stateReg = ForceRomIn();
 
@@ -164,8 +167,22 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
         memset(&sess->reply, 0, sizeof(sess->reply));
         FinishASPCommand(sess);
     } else {
+        lastActivityTime = GetTick();
+        lastReadCount = sess->readCount;
+        i = 0;
         while (sess->commandPending) {
             PollForData(sess);
+            if (sess->readCount != lastReadCount) {
+                lastReadCount = sess->readCount;
+                lastActivityTime = GetTick();
+                i = 0;
+            } else if (GetTick() - lastActivityTime > 30*60) {
+                if (i < 5) {
+                    i++;
+                } else {
+                    FlagFatalError(sess, aspNoRespErr);
+                }
+            }
         }
     }
 
