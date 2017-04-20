@@ -301,6 +301,8 @@ resource rPString(saveFilePrompt) { "Save server alias as:" };
 #define aliasFileError              3003
 #define tempFileNameError           3004
 #define saveAliasError              3005
+#define noAFPBridgeError            3006
+#define noAFPBridgeWarning          3007
 
 #define protoInvalidError           4000
 #define noServerOrVolumeNameError   4001
@@ -417,4 +419,21 @@ resource rAlertString (saveAliasError) {
     "42:"
     "There was an error while attempting to save the alias file."
     ":^#0\$00"
+};
+
+resource rAlertString (noAFPBridgeError) {
+    "62:"
+    "To connect to AFP servers over TCP, AFPBridge and Marinetti "
+    "must be installed and enabled.  Please install them and then "
+    "restart your system."
+    ":^#0\$00"
+};
+
+resource rAlertString (noAFPBridgeWarning) {
+    "74:"
+    "To connect to AFP servers over TCP, AFPBridge and Marinetti "
+    "must be installed and enabled.  You can continue to save an "
+    "alias now, but to connect to the server you will need to "
+    "install them and then restart your system."
+    ":#1:^#6\$00"
 };

@@ -19,6 +19,7 @@
 #include <desk.h>
 #include <menu.h>
 #include <finder.h>
+#include <tcpip.h>
 #include "afpoptions.h"
 #include "afpurlparser.h"
 #include "strncasecmp.h"
@@ -56,6 +57,8 @@
 #define aliasFileError      3003
 #define tempFileNameError   3004
 #define saveAliasError      3005
+#define noAFPBridgeError    3006
+#define noAFPBridgeWarning  3007
 
 #define EM_filetype     0xE2
 #define EM_auxtype      0xFFFF
@@ -320,6 +323,25 @@ void ConnectOrSave(AFPURLParts* urlParts, GSString255Ptr file, Boolean connect)
     }
 }
 
+Boolean checkVersions(void)
+{
+    static struct {
+        Word blockLen;
+        char nameString[23];
+    } messageRec = { sizeof(messageRec), "\pSTH~AFPBridge~Version~" };
+    
+    /* Check if AFPBridge is active (any version is OK) */
+    MessageByName(FALSE, (Pointer)&messageRec);
+    if (toolerror())
+        return FALSE;
+    
+    /* Check for Marinetti (AFPBridge will keep it active if installed) */
+    if (!TCPIPStatus() || toolerror())
+        return FALSE;
+    
+    return TRUE;
+}
+
 void DoConnect(void)
 {
     Word i;
@@ -333,6 +355,11 @@ void DoConnect(void)
     if (urlParts.protocol == proto_invalid)
         goto fixcaret;
     
+    if (urlParts.protocol == proto_TCP && !checkVersions()) {
+        AlertWindow(awResource+awButtonLayout, NULL, noAFPBridgeError);
+        goto fixcaret;
+    }
+
     /* Generate the path name for the temp file in same dir as the CDev */
     getRefInfoRec.pCount = 3;
     getRefInfoRec.refNum = GetOpenFileRefNum(0); /* current resource file */
@@ -378,6 +405,11 @@ void DoSave(void)
     if (urlParts.protocol == proto_invalid)
         return;
     
+    if (urlParts.protocol == proto_TCP && !checkVersions()) {
+        if (AlertWindow(awResource+awButtonLayout, NULL, noAFPBridgeWarning)==0)
+            return;
+    }
+
     /* Load Standard File toolset if necessary */
     if (!SFStatus() || toolerror()) {
         if (toolerror())

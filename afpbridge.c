@@ -7,16 +7,24 @@
 #include <desk.h>
 #include <orca.h>
 #include <gsos.h>
+#include <string.h>
 #include "installcmds.h"
 #include "aspinterface.h"
 #include "asmglue.h"
 
 const char bootInfoString[] = "AFPBridge             v1.0b1";
+LongWord version = 0x01006001;      /* in rVersion format */
+
+const char versionMessageString[] = "\pSTH~AFPBridge~Version~";
+
+typedef struct VersionMessageRec {
+    Word blockLen;
+    char nameString[23];
+    LongWord dataBlock;
+} VersionMessageRec;
 
 extern Word *unloadFlagPtr;
 extern void resetRoutine(void);
-
-FSTInfoRecGS fstInfoRec;
 
 void pollTask(void);
 void notificationProc(void);
@@ -40,9 +48,7 @@ static struct NotificationProcRec {
     void (*proc)(void);
 } notificationProcRec;
 
-NotifyProcRecGS addNotifyProcRec;
-
-LongWord *SoftResetPtr = (LongWord *)0xE11010;
+#define SoftResetPtr ((LongWord *)0xE11010)
 extern LongWord oldSoftReset;
 
 #define JML 0x5C
@@ -54,6 +60,9 @@ void setUnloadFlag(void) {
 
 int main(void) {
     unsigned int i;
+    FSTInfoRecGS fstInfoRec;
+    NotifyProcRecGS addNotifyProcRec;
+    VersionMessageRec versionMessageRec;
 
     /*
      * Check for presence of AppleShare FST.  We error out and unload
@@ -77,6 +86,14 @@ int main(void) {
      */
     LoadOneTool(54, 0x0200);
     if (toolerror() && toolerror() != terrINITNOTFOUND)
+        goto error;
+    
+    versionMessageRec.blockLen = sizeof(versionMessageRec);
+    memcpy(versionMessageRec.nameString, versionMessageString,
+            sizeof(versionMessageRec.nameString));
+    versionMessageRec.dataBlock = version;
+    MessageByName(TRUE, (Pointer)&versionMessageRec);
+    if (toolerror())
         goto error;
     
     ShowBootInfo(bootInfoString, NULL);
