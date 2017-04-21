@@ -1,5 +1,23 @@
 #include "types.rez"
 
+resource rVersion (1) {
+    { 1,0,0,beta,1 },
+    verUS,
+    "AFP Mounter",
+    "By Stephen Heumann"
+};
+
+resource rComment (1) {
+    "The AFP Mounter control panel allows you to connect to "
+    "file servers using the Apple Filing Protocol (AFP) "
+    "over either AppleTalk or TCP/IP.\n"
+    "\n"
+    "Copyright 2017 Stephen Heumann\n"
+    "\n"
+    "This program contains material from the ORCA/C Run-Time Libraries, "
+    "copyright 1987-1996 by Byte Works, Inc. Used with permission."
+};
+
 resource rCDEVFlags (1) {
     wantMachine+wantHit+wantClose+wantEvents+wantEdit+wantCreate,
     1,                          /* enabled */
