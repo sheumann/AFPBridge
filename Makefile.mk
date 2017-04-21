@@ -24,7 +24,9 @@ AFPMOUNTER_OBJS = cdevstart.o afpcdev.o afpurlparser.o afpoptions.o strncasecmp.
 AFPMOUNTER_RSRC = afpcdev.rez
 AFPMOUNTER_CDEV = AFPMounter
 
-PROGS = $(DSITEST_PROG) $(MOUNTAFP_PROG) $(DUMPCMDTBL_PROG) $(AFPBRIDGE_PROG) $(AFPMOUNTER_CDEV)
+MACROS = asmglue.macros cmdproc.macros
+
+PROGS = $(AFPBRIDGE_PROG) $(AFPMOUNTER_CDEV) $(DSITEST_PROG) $(MOUNTAFP_PROG) $(DUMPCMDTBL_PROG) $(LISTSESSIONS_PROG)
 
 .PHONY: default
 default: $(PROGS)
@@ -54,7 +56,7 @@ $(AFPMOUNTER_CDEV): $(AFPMOUNTER_CDEV).obj $(AFPMOUNTER_RSRC)
 	chtyp -tcdv $@
 
 %.macros: %.asm
-	macgen $< $@ /lang/orca/Libraries/ORCAInclude/m16.*
+	macgen $< $@ /lang/orca/Libraries/ORCAInclude/m16.* > .null
 
 .PHONY: install
 install: $(AFPBRIDGE_PROG) $(AFPMOUNTER_CDEV)
@@ -62,13 +64,17 @@ install: $(AFPBRIDGE_PROG) $(AFPMOUNTER_CDEV)
 	cp $(AFPMOUNTER_CDEV) "*/System/CDevs"
 	$(RM) "*/System/CDevs/CDev.Data" > .null
 
-.PHONY: import
-import:
-	chtyp -ttxt *.mk
+.PHONY: chtyp
+chtyp:
+	chtyp -ttxt *.mk *.md *.txt
 	chtyp -lcc *.c *.h
 	chtyp -lasm *.asm *.macros
 	chtyp -lrez *.rez
+
+.PHONY: import
+import: chtyp
 	udl -g *
+	dmake $(MACROS)
 
 .PHONY: clean
 clean:
