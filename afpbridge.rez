@@ -1,0 +1,19 @@
+#include "types.rez"
+
+resource rVersion (1) {
+    { 1,0,0,beta,1 },
+    verUS,
+    "AFPBridge",
+    "By Stephen Heumann"
+};
+
+resource rComment (1) {
+    "AFPBridge allows you to connect to AFP file servers using TCP/IP. "
+    "To use it, install this file in the *:System:System.Setup folder "
+    "and then reboot.\n"
+    "\n"
+    "Copyright 2017 Stephen Heumann\n"
+    "\n"
+    "This program contains material from the ORCA/C Run-Time Libraries, "
+    "copyright 1987-1996 by Byte Works, Inc. Used with permission."
+};

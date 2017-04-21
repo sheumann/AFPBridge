@@ -4,7 +4,7 @@ COMMAND = $(!eq,$(CMNDNAME),$(CC) $(CMNDNAME) $(USEORCALIBS)&&$(CC)) $(CMNDARGS)
 
 CFLAGS = -i -w -O95
 
-DSITEST_OBJS = dsitest.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o cmdproc.o installcmds.o afpoptions.o strncasecmp.o
+DSITEST_OBJS = dsitest.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o cmdproc.o installcmds.o afpoptions.o strncasecmp.o savenames.o
 DSITEST_PROG = dsitest
 
 LISTSESSIONS_OBJS = listsess.o callat.o
@@ -17,6 +17,7 @@ DUMPCMDTBL_OBJS = dumpcmdtbl.o asmglue.o
 DUMPCMDTBL_PROG = dumpcmdtbl
 
 AFPBRIDGE_OBJS = afpinit.o afpbridge.o aspinterface.o dsi.o readtcp.o endian.o tcpconnection.o atipmapping.o asmglue.o installcmds.o cmdproc.o callat.o afpoptions.o strncasecmp.o savenames.o
+AFPBRIDGE_RSRC = afpbridge.rez
 AFPBRIDGE_PROG = AFPBridge
 
 AFPMOUNTER_OBJS = cdevstart.o afpcdev.o afpurlparser.o afpoptions.o strncasecmp.o
@@ -40,8 +41,9 @@ $(DUMPCMDTBL_PROG): $(DUMPCMDTBL_OBJS)
 $(LISTSESSIONS_PROG): $(LISTSESSIONS_OBJS)
 	$(CC) $(CFLAGS) -o $@ $<
 
-$(AFPBRIDGE_PROG): $(AFPBRIDGE_OBJS)
-	$(CC) $(CFLAGS) -M -o $@ $< > $@.map
+$(AFPBRIDGE_PROG): $(AFPBRIDGE_OBJS) $(AFPBRIDGE_RSRC)
+	$(CC) $(CFLAGS) -M -o $@ $(AFPBRIDGE_OBJS) > $@.map
+	$(REZ) $(AFPBRIDGE_RSRC) -o $@
 	chtyp -tpif $@
 
 $(AFPMOUNTER_CDEV).obj: $(AFPMOUNTER_OBJS)
