@@ -88,6 +88,19 @@ jslOldPFIListSessions2 entry
 	rtl
 	end
 
+pfiLoginContCmdProc start
+	lda	cmdRecPtr+2
+	pha
+	lda	cmdRecPtr
+	pha
+jslOldPFILoginCont entry
+	jsl	jslOldPFILoginCont	; to be changed
+	rep	#$30		; ensure full native mode
+	jsl	PostLoginCont
+	rtl
+	end
+
+
 CallCompletionRoutine start
 	phb
 	jsl	ForceLCBank2	;use LC bank 2

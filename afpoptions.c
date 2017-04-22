@@ -9,5 +9,7 @@ AFPOptions afpOptions[] =
     {"AFP over TCP (LargeReads)", fLargeReads},
     {"AFP over TCP (AFP2.2)", fForceAFP22},
     {"AFP over TCP (LargeReads,AFP2.2)", fLargeReads | fForceAFP22},
+    {"AFP over TCP (AFP2.2,FakeSleep)", fForceAFP22 | fFakeSleep},
+    {"AFP over TCP (LR,AFP2.2,FS)", fLargeReads | fForceAFP22 | fFakeSleep},
     {0, 0}
 };

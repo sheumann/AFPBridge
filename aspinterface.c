@@ -28,6 +28,7 @@ typedef struct FPReadRec {
 
 #define kFPRead 27
 #define kFPLogin 18
+#define kFPZzzzz 122
 
 /* For forced AFP 2.2 login */
 static Byte loginBuf[100];
@@ -41,6 +42,7 @@ static void DoSPCommand(Session *sess, ASPCommandRec *commandRec);
 static void DoSPWrite(Session *sess, ASPWriteRec *commandRec);
 
 static void CompleteASPCommand(SPCommandRec *commandRec, Word result);
+static void InitSleepRec(Session *sess, Byte sessRefNum);
 
 Session sessionTbl[MAX_SESSIONS];
 
@@ -54,6 +56,7 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
     
     stateReg = ForceRomIn();
 
+top:
     if (commandRec->command == aspGetStatusCommand 
         || commandRec->command==aspOpenSessionCommand)
     {
@@ -84,6 +87,7 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
         sess = &sessionTbl[i];
         sess->spCommandRec = commandRec;
         sess->commandPending = TRUE;
+        InitSleepRec(sess, i + SESSION_NUM_START);
         
         if ((i = StartTCPConnection(sess)) != 0) {
             FlagFatalError(sess, i);
@@ -186,7 +190,30 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec) {
         }
     }
 
-ret:    
+ret:
+    /*
+     * If requested by user, we tell the server we are "going to sleep"
+     * after every command we send.  This avoids having the server 
+     * disconnect us because we can't send tickles for a while.
+     *
+     * This implementation is designed to work with Netatalk:
+     * -Apple's docs say FPZzzzz was introduced with AFP 2.3, but Netatalk 
+     *  supports it with AFP 2.2 and doesn't support AFP 2.3 at all.
+     * -Apple's docs also say there is no reply to FPZzzzz, but Netatalk
+     *  send a reply with four bytes of data.
+     * Netatalk includes comments indicating Apple's implementation in OS X
+     * may really work more like Netatalk, but I haven't checked this.
+     */
+    if ((sess->atipMapping.flags & fFakeSleep)
+        && sess->loggedIn && commandRec->result == 0 
+        && (commandRec->command == aspCommandCommand
+            || commandRec->command == aspWriteCommand)
+        && commandRec != (SPCommandRec*)&sess->sleepCommandRec)
+    {
+        commandRec = (SPCommandRec*)&sess->sleepCommandRec;
+        goto top;
+    }
+    
     RestoreStateReg(stateReg);
     return 0;
 
@@ -452,6 +479,19 @@ void CallAttentionRoutine(Session *sess, Byte attenType, Word atten) {
     
     /* Call attention routine like completion routine */
     CallCompletionRoutine((void *)(sess->attention + 1));
+}
+
+static void InitSleepRec(Session *sess, Byte sessRefNum) {
+    sess->sleepCommandRec.async = 0;
+    sess->sleepCommandRec.command = aspCommandCommand;
+    sess->sleepCommandRec.completionPtr = 0;
+    sess->sleepCommandRec.refNum = sessRefNum;
+    sess->sleepCommandRec.cmdBlkLength = sizeof(sess->fpZzzzzRec);
+    sess->sleepCommandRec.cmdBlkAddr = (LongWord)&sess->fpZzzzzRec;
+    sess->sleepCommandRec.replyBufferLen = sizeof(sess->fpZzzzzResponseRec);
+    sess->sleepCommandRec.replyBufferAddr = (LongWord)&sess->fpZzzzzResponseRec;
+    sess->fpZzzzzRec.CommandCode = kFPZzzzz;
+    sess->fpZzzzzRec.Flag = 0;
 }
 
 void PollAllSessions(void) {

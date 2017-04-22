@@ -87,6 +87,10 @@ void SaveNames(PFILogin2Rec *commandRec) {
         goto ret;
     }
     
+    if (commandRec->result == 0 && commandRec->sessRefID >= SESSION_NUM_START) {
+        sessionTbl[commandRec->sessRefID - SESSION_NUM_START].loggedIn = TRUE;
+    }
+    
     if (commandRec->sessRefID <= MAX_ASP_SESSION_NUM) {
         nameRec = &aspSessionNames[commandRec->sessRefID];
         aspActiveFlags[commandRec->sessRefID] = 1;
@@ -154,3 +158,16 @@ ret:
 }
 #pragma databank 0
 
+#pragma databank 1
+void PostLoginCont(PFILoginContRec *commandRec) {
+    Word stateReg;
+    
+    stateReg = ForceRomIn();
+
+    if (commandRec->result == 0 && commandRec->sessRefID >= SESSION_NUM_START) {
+        sessionTbl[commandRec->sessRefID - SESSION_NUM_START].loggedIn = TRUE;
+    }
+
+    RestoreStateReg(stateReg);
+}
+#pragma databank 0

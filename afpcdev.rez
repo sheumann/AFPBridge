@@ -97,6 +97,7 @@ resource rIcon (1) {
 #define afpOverTCPOptionsItem   301
 #define useLargeReadsItem       302
 #define forceAFP22Item          303
+#define fakeSleepItem           304
 
 /*
  * Controls in the control panel window (for 640 mode or 320 mode)
@@ -244,7 +245,7 @@ resource rMenu (optionsMenu) {
     optionsMenu,                            /* menu ID */
     refIsResource*menuTitleRefShift + refIsResource*itemRefShift,
     optionsMenu,                            /* menu title ref (not drawn) */
-    {afpOverTCPOptionsItem, useLargeReadsItem, forceAFP22Item};
+    {afpOverTCPOptionsItem, useLargeReadsItem, forceAFP22Item, fakeSleepItem};
 };
 resource rPString(optionsMenu,noCrossBank) { "" };
 
@@ -274,6 +275,15 @@ resource rMenuItem (forceAFP22Item) {
     forceAFP22Item                          /* menu item title ref */
 };
 resource rPString(forceAFP22Item,noCrossBank) { "Force AFP Version 2.2" };
+
+resource rMenuItem (fakeSleepItem) {
+    fakeSleepItem,                          /* menu item ID */
+    "","",
+    0,
+    fDisabled+refIsResource*itemTitleRefShift,
+    fakeSleepItem                           /* menu item title ref */
+};
+resource rPString(fakeSleepItem,noCrossBank) { "Fake Sleep to Keep Alive" };
 
 /*
  * Controls in the help window

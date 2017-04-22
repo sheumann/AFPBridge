@@ -21,6 +21,7 @@ NewCmd newCmds[] = {
     {nbpLookupNameCommand, nbpCmdProc, NULL},
     {pfiLoginCommand, pfiLoginCmdProc, &jslOldPFILogin},
     {pfiLogin2Command, pfiLogin2CmdProc, &jslOldPFILogin2},
+    {pfiLoginContCommand, pfiLoginContCmdProc, &jslOldPFILoginCont},
     {pfiListSessions2Command, pfiListSessions2CmdProc, &jslOldPFIListSessions2},
     {0, 0, 0}
 };

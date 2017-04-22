@@ -50,6 +50,7 @@
 #define afpOverTCPOptionsItem   301
 #define useLargeReadsItem       302
 #define forceAFP22Item          303
+#define fakeSleepItem           304
 
 #define fstMissingError     3000
 #define noEasyMountError    3001
@@ -492,6 +493,18 @@ void DoHit(long ctlID, CtlRecHndl ctlHandle)
         } else if (menuItem == forceAFP22Item) {
             flags ^= fForceAFP22;
             CheckMItem((flags & fForceAFP22) ? TRUE : FALSE, forceAFP22Item);
+            
+            /* Fake sleep is allowed only with AFP 2.2. */
+            if (flags & fForceAFP22) {
+                EnableMItem(fakeSleepItem);
+            } else {
+                DisableMItem(fakeSleepItem);
+                CheckMItem(FALSE, fakeSleepItem);
+                flags &= ~fFakeSleep;
+            }
+        } else if (menuItem == fakeSleepItem) {
+            flags ^= fFakeSleep;
+            CheckMItem((flags & fFakeSleep) ? TRUE : FALSE, fakeSleepItem);
         }
         
         SetCtlValue(afpOverTCPOptionsItem, ctlHandle);

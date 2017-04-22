@@ -2,6 +2,7 @@
 #define SESSION_H
 
 #include <types.h>
+#include <appletalk.h>
 #include "dsiproto.h"
 #include "atipmapping.h"
 
@@ -22,6 +23,11 @@ typedef enum DSISessionStatus {
     error,
     needsReset  /* set after control-reset in P8 mode */
 } DSISessionStatus;
+
+typedef struct FPZzzzzRec {
+    Word CommandCode;   /* includes pad byte */
+    LongWord Flag;
+} FPZzzzzRec;
 
 typedef struct Session {
     /* Marinetti TCP connection status */
@@ -62,6 +68,14 @@ typedef struct Session {
     
     /* Attention routine header (followed by the routine) */
     ASPAttentionHeaderRec *attention;
+    
+    /* Is this session successfully logged in? */
+    Boolean loggedIn;
+    
+    /* Records for sending (fake) sleep messages to server */
+    ASPCommandRec sleepCommandRec;
+    FPZzzzzRec fpZzzzzRec;
+    Byte fpZzzzzResponseRec[4];
 } Session;
 
 #endif
