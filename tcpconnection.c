@@ -61,7 +61,6 @@ Word StartTCPConnection(Session *sess) {
 
 void EndTCPConnection(Session *sess) {
     if (sess->tcpLoggedIn) {
-        TCPIPCloseTCP(sess->ipid);
         TCPIPPoll();
         TCPIPAbortTCP(sess->ipid);
         TCPIPLogout(sess->ipid);
