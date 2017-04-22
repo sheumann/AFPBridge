@@ -109,6 +109,9 @@ SFReplyRec2 sfReplyRec;
 
 Word modifiers = 0;
 
+char zoneBuf[ZONE_MAX + 1];
+char AFPOverTCPZone[] = "AFP over TCP";
+
 unsigned int flags = fLargeReads; /* for AFP over TCP connections */
 
 void fillEasyMountRec(char *server, char *zone, char *volume, char *user,
@@ -264,13 +267,24 @@ void finalizeURLParts(AFPURLParts *urlParts)
         }
     }
 
+    /*
+     * Assemble zone name for TCP, including any options.
+     * Note that the generated zone name can't be over 32 characters.
+     */
     if (urlParts->protocol == proto_TCP) {
-        urlParts->zone = afpOptions[0].zoneString;
-        for (i = 0; afpOptions[i].zoneString != NULL; i++) {
-            if (afpOptions[i].flags == flags) {
-                urlParts->zone = afpOptions[i].zoneString;
+        strcpy(zoneBuf, AFPOverTCPZone);
+        if (flags != 0) {
+            strcat(zoneBuf, " (");
+        
+            for (i = 0; afpOptions[i].optString != NULL; i++) {
+                if (afpOptions[i].flag & flags) {
+                    strcat(zoneBuf, afpOptions[i].optString);
+                    strcat(zoneBuf, ",");
+                }
             }
+            zoneBuf[strlen(zoneBuf) - 1] = ')';
         }
+        urlParts->zone = zoneBuf;
     }
 }
 

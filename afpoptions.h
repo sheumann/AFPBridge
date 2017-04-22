@@ -6,8 +6,8 @@
 #define fFakeSleep      0x0004
 
 typedef struct AFPOptions {
-    char *zoneString;
-    unsigned int flags;
+    char *optString;
+    unsigned int flag;
 } AFPOptions;
 
 extern AFPOptions afpOptions[];

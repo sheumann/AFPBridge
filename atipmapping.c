@@ -1,6 +1,7 @@
 #pragma noroot
 
 #include <stddef.h>
+#include <string.h>
 #include <ctype.h>
 #include <appletalk.h>
 #include <tcpip.h>
@@ -20,6 +21,7 @@ struct ATIPMapping atipMapping;
 
 static char ATIPTypeName[] = "\pAFPServer";
 static char DefaultZoneName[] = "\p*";
+static char AFPOverTCPZone[] = "AFP over TCP";
 
 // Next numbers to use for new mappings
 static int nextNode = 1;
@@ -36,8 +38,8 @@ static int nextSocket = 1;
 LongWord DoLookupName(NBPLookupNameRec *commandRec) {
     cvtRec hostInfo;
     dnrBuffer dnrInfo;
-    Byte *curr, *dest;
-    unsigned int count, nameLen;
+    Byte *curr, *dest, *sep;
+    unsigned int count, nameLen, i;
     NBPLUNameBufferRec *resultBuf;
     LongWord initialTime;
     Word stateReg;
@@ -74,16 +76,49 @@ LongWord DoLookupName(NBPLookupNameRec *commandRec) {
             goto passThrough;
         *dest++ = ATIPTypeName[count];
     }
-    nameLen = *curr;
-    flags = 0xFFFF;
-    for (count = 0; afpOptions[count].zoneString != NULL; count++) {
-        if (strncasecmp(afpOptions[count].zoneString, curr+1, nameLen) == 0) {
-            flags = afpOptions[count].flags;
-            break;
+    nameLen = *curr++;
+    
+    /* Check if zone starts with "AFP over TCP" */
+    if (nameLen < sizeof(AFPOverTCPZone) - 1)
+        goto passThrough;
+    if (strncasecmp(AFPOverTCPZone, curr, sizeof(AFPOverTCPZone) - 1) != 0)
+        goto passThrough;
+    
+    /* Check for options (in parentheses after "AFP over TCP ") */
+    flags = 0;
+    if (nameLen > sizeof(AFPOverTCPZone) - 1) {
+        nameLen -= sizeof(AFPOverTCPZone) - 1;
+        curr += sizeof(AFPOverTCPZone) - 1;
+        if (nameLen < 3)
+            goto passThrough;
+        if (curr[0] != ' ' || curr[1] != '(' || curr[nameLen-1] != ')')
+            goto passThrough;
+        nameLen -= 2;
+        curr += 2;
+        
+        while (nameLen > 1) {
+            /* Parse options */
+            if (memchr(curr, '\0', nameLen - 1) != NULL)
+                goto passThrough;
+            sep = memchr(curr, ',', nameLen - 1);
+            count = (sep == NULL) ? nameLen - 1 : sep - curr;
+
+            for (i = 0; afpOptions[i].optString != NULL; i++) {
+                if (strncasecmp(curr, afpOptions[i].optString, count) == 0
+                    && afpOptions[i].optString[count] == '\0')
+                {
+                    flags |= afpOptions[i].flag;
+                    break;
+                }
+            }
+            /* Don't accept unknown options */
+            if (afpOptions[i].optString == NULL)
+                goto passThrough;
+            
+            nameLen -= count + 1;
+            curr += count + 1;
         }
     }
-    if (flags == 0xFFFF)
-        goto passThrough;
 
     nameLen = *DefaultZoneName;
     for (count = 0; count <= nameLen; count++) {

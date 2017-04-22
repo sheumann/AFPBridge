@@ -2,14 +2,15 @@
 
 #include "afpoptions.h"
 
+/*
+ * These are option codes that can be used in the zone string, e.g.
+ * "AFP over TCP (LR,22)".  Note that the zone string is limited to 32
+ * characters.  With 2-character options, we can use up to six at once.
+ */
 AFPOptions afpOptions[] = 
 {
-    /*12345678901234567890123456789012 <- max length = 32 */
-    {"AFP over TCP", 0},
-    {"AFP over TCP (LargeReads)", fLargeReads},
-    {"AFP over TCP (AFP2.2)", fForceAFP22},
-    {"AFP over TCP (LargeReads,AFP2.2)", fLargeReads | fForceAFP22},
-    {"AFP over TCP (AFP2.2,FakeSleep)", fForceAFP22 | fFakeSleep},
-    {"AFP over TCP (LR,AFP2.2,FS)", fLargeReads | fForceAFP22 | fFakeSleep},
+    {"LR", fLargeReads},
+    {"22", fForceAFP22},
+    {"FS", fFakeSleep},
     {0, 0}
 };
