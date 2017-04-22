@@ -93,11 +93,13 @@ resource rIcon (1) {
 
 #define saveFilePrompt      100
 
-#define optionsMenu             300
-#define afpOverTCPOptionsItem   301
-#define useLargeReadsItem       302
-#define forceAFP22Item          303
-#define fakeSleepItem           304
+#define optionsMenu                         300
+#define afpOverTCPOptionsItem               301
+#define useLargeReadsItem                   302
+#define forceAFP22Item                      303
+#define fakeSleepItem                       304
+#define useLargeWritesItem                  305
+#define ignoreErrorsSettingFileTypesItem    306
 
 /*
  * Controls in the control panel window (for 640 mode or 320 mode)
@@ -245,7 +247,14 @@ resource rMenu (optionsMenu) {
     optionsMenu,                            /* menu ID */
     refIsResource*menuTitleRefShift + refIsResource*itemRefShift,
     optionsMenu,                            /* menu title ref (not drawn) */
-    {afpOverTCPOptionsItem, useLargeReadsItem, forceAFP22Item, fakeSleepItem};
+    {
+        afpOverTCPOptionsItem,
+        useLargeReadsItem,
+        useLargeWritesItem,
+        forceAFP22Item,
+        fakeSleepItem,
+        ignoreErrorsSettingFileTypesItem
+    };
 };
 resource rPString(optionsMenu,noCrossBank) { "" };
 
@@ -266,7 +275,16 @@ resource rMenuItem (useLargeReadsItem) {
     useLargeReadsItem                       /* menu item title ref */
 };
 resource rPString(useLargeReadsItem,noCrossBank) { "Use Large Reads" };
-             
+
+resource rMenuItem (useLargeWritesItem) {
+    useLargeWritesItem,                     /* menu item ID */
+    "","",
+    $12,
+    refIsResource*itemTitleRefShift,
+    useLargeWritesItem                      /* menu item title ref */
+};
+resource rPString(useLargeWritesItem,noCrossBank) { "Use Large Writes" };
+
 resource rMenuItem (forceAFP22Item) {
     forceAFP22Item,                         /* menu item ID */
     "","",
@@ -284,6 +302,17 @@ resource rMenuItem (fakeSleepItem) {
     fakeSleepItem                           /* menu item title ref */
 };
 resource rPString(fakeSleepItem,noCrossBank) { "Fake Sleep to Keep Alive" };
+
+resource rMenuItem (ignoreErrorsSettingFileTypesItem) {
+    ignoreErrorsSettingFileTypesItem,       /* menu item ID */
+    "","",
+    0,
+    refIsResource*itemTitleRefShift,
+    ignoreErrorsSettingFileTypesItem        /* menu item title ref */
+};
+resource rPString(ignoreErrorsSettingFileTypesItem,noCrossBank) {
+    "Ignore Errors Setting File Types"
+};
 
 /*
  * Controls in the help window

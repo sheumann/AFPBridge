@@ -46,11 +46,13 @@
 
 #define saveFilePrompt      100
 
-#define optionsMenu             300
-#define afpOverTCPOptionsItem   301
-#define useLargeReadsItem       302
-#define forceAFP22Item          303
-#define fakeSleepItem           304
+#define optionsMenu                         300
+#define afpOverTCPOptionsItem               301
+#define useLargeReadsItem                   302
+#define forceAFP22Item                      303
+#define fakeSleepItem                       304
+#define useLargeWritesItem                  305
+#define ignoreErrorsSettingFileTypesItem    306
 
 #define fstMissingError     3000
 #define noEasyMountError    3001
@@ -112,7 +114,8 @@ Word modifiers = 0;
 char zoneBuf[ZONE_MAX + 1];
 char AFPOverTCPZone[] = "AFP over TCP";
 
-unsigned int flags = fLargeReads; /* for AFP over TCP connections */
+/* Default flags for AFP over TCP connections */
+unsigned int flags = fLargeReads | fLargeWrites;
 
 void fillEasyMountRec(char *server, char *zone, char *volume, char *user,
                       char *password, char *volpass)
@@ -510,6 +513,14 @@ void DoHit(long ctlID, CtlRecHndl ctlHandle)
         } else if (menuItem == fakeSleepItem) {
             flags ^= fFakeSleep;
             CheckMItem((flags & fFakeSleep) ? TRUE : FALSE, fakeSleepItem);
+        } else if (menuItem == useLargeWritesItem) {
+            flags ^= fLargeWrites;
+            CheckMItem((flags & fLargeWrites) ? TRUE : FALSE,
+                       useLargeWritesItem);
+        } else if (menuItem == ignoreErrorsSettingFileTypesItem) {
+            flags ^= fIgnoreFileTypeErrors;
+            CheckMItem((flags & fIgnoreFileTypeErrors) ? TRUE : FALSE,
+                       ignoreErrorsSettingFileTypesItem);
         }
         
         SetCtlValue(afpOverTCPOptionsItem, ctlHandle);

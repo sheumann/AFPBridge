@@ -26,9 +26,32 @@ typedef struct FPReadRec {
     Byte NewLineChar;
 } FPReadRec;
 
+typedef struct FPWriteRec {
+    Word CommandCode;   /* includes pad byte */
+    Word OForkRecNum;
+    LongWord Offset;
+    LongWord ReqCount;
+} FPWriteRec;
+
+typedef struct FPSetFileDirParmsRec {
+    Word CommandCode;   /* includes pad byte */
+    Word VolumeID;
+    LongWord DirectoryID;
+    Word Bitmap;
+    Byte PathType;
+    /* Pathname and parameters follow */
+} FPSetFileDirParmsRec;
+
 #define kFPRead 27
 #define kFPLogin 18
 #define kFPZzzzz 122
+#define kFPSetFileDirParms 35
+
+#define kFPBitmapErr (-5004L)
+
+#define kFPProDOSInfoBit 0x2000     /* In file/directory bitmaps */
+
+#define ASPQuantumSize 4624
 
 /* For forced AFP 2.2 login */
 static Byte loginBuf[100];
@@ -196,13 +219,13 @@ ret:
      * after every command we send.  This avoids having the server 
      * disconnect us because we can't send tickles for a while.
      *
-     * This implementation is designed to work with Netatalk:
-     * -Apple's docs say FPZzzzz was introduced with AFP 2.3, but Netatalk 
-     *  supports it with AFP 2.2 and doesn't support AFP 2.3 at all.
-     * -Apple's docs also say there is no reply to FPZzzzz, but Netatalk
-     *  send a reply with four bytes of data.
-     * Netatalk includes comments indicating Apple's implementation in OS X
-     * may really work more like Netatalk, but I haven't checked this.
+     * This implementation differs from Apple's specifications in a couple
+     * respects, but matches the actual behavior of the servers I've tried:
+     *
+     * -Apple's docs say FPZzzzz was introduced with AFP 2.3, but Netatalk and
+     *  OS X 10.5 support it with AFP 2.2 and doesn't support AFP 2.3 at all.
+     * -Apple's docs show no reply block for FPZzzzz, but Netatalk and 
+     *  OS X 10.5 send a reply with four bytes of data.
      */
     if ((sess->atipMapping.flags & fFakeSleep)
         && sess->loggedIn && commandRec->result == 0 
@@ -355,12 +378,27 @@ static void DoSPCommand(Session *sess, ASPCommandRec *commandRec) {
 }
 
 static void DoSPWrite(Session *sess, ASPWriteRec *commandRec) {
+    LongWord dataLength;
+
     sess->request.flags = DSI_REQUEST;
     sess->request.command = DSIWrite;
     sess->request.requestID = htons(sess->nextRequestID++);
     sess->request.writeOffset = htonl(commandRec->cmdBlkLength);
-    sess->request.totalDataLength =
-        htonl(commandRec->cmdBlkLength + commandRec->writeDataLength);
+    dataLength = commandRec->writeDataLength;
+    
+    /*
+     * If requested, limit the data size of a single DSIWrite command to 4623.
+     * This is necessary to make writes work on OS X (and others?).
+     */
+    if (!(sess->atipMapping.flags & fLargeWrites) 
+        && dataLength > ASPQuantumSize - 1)
+    {
+        dataLength = ASPQuantumSize - 1;
+        ((FPReadRec*)commandRec->cmdBlkAddr)->ReqCount = htonl(dataLength);
+    }
+    
+    sess->request.totalDataLength = 
+        htonl(dataLength + commandRec->cmdBlkLength);
     sess->replyBuf = (void*)(commandRec->replyBufferAddr & 0x00FFFFFF);
     sess->replyBufLen = commandRec->replyBufferLen;
     
@@ -411,13 +449,32 @@ void FinishASPCommand(Session *sess) {
         ((ASPCommandRec*)(sess->spCommandRec))->cmdResult =
             sess->reply.errorCode;
         ((ASPCommandRec*)(sess->spCommandRec))->replyLength = dataLength;
+        
+        /*
+         * If requested by user, ignore errors when setting ProDOS-style
+         * filetype info.  This allows files to be written to servers running
+         * old versions of OS X, although filetypes are not set correctly.
+         */
+        if ((sess->atipMapping.flags & fIgnoreFileTypeErrors)
+            && ((ASPCommandRec*)(sess->spCommandRec))->cmdBlkLength
+                > sizeof(FPSetFileDirParmsRec)
+            && *(Byte*)(((ASPCommandRec*)(sess->spCommandRec))->cmdBlkAddr)
+                == kFPSetFileDirParms
+            && (((FPSetFileDirParmsRec*)(((ASPCommandRec*)(sess->spCommandRec))
+                ->cmdBlkAddr))->Bitmap & htons(kFPProDOSInfoBit))
+            && sess->reply.errorCode == htonl((LongWord)kFPBitmapErr))
+        {
+            ((ASPCommandRec*)(sess->spCommandRec))->cmdResult = 0;
+        }
+        
         break;
     case aspWriteCommand:
         ((ASPWriteRec*)(sess->spCommandRec))->cmdResult =
             sess->reply.errorCode;
         ((ASPWriteRec*)(sess->spCommandRec))->replyLength = dataLength;
         ((ASPWriteRec*)(sess->spCommandRec))->writtenLength =
-            ((ASPWriteRec*)(sess->spCommandRec))->writeDataLength;
+            ntohl(sess->request.totalDataLength)
+            - ((ASPWriteRec*)(sess->spCommandRec))->cmdBlkLength;
         break;
     }
 

@@ -10,7 +10,9 @@
 AFPOptions afpOptions[] = 
 {
     {"LR", fLargeReads},
+    {"LW", fLargeWrites},
     {"22", fForceAFP22},
     {"FS", fFakeSleep},
+    {"IE", fIgnoreFileTypeErrors},
     {0, 0}
 };
