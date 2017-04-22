@@ -280,7 +280,7 @@ resource rMenuItem (fakeSleepItem) {
     fakeSleepItem,                          /* menu item ID */
     "","",
     0,
-    fDisabled+refIsResource*itemTitleRefShift,
+    refIsResource*itemTitleRefShift,
     fakeSleepItem                           /* menu item title ref */
 };
 resource rPString(fakeSleepItem,noCrossBank) { "Fake Sleep to Keep Alive" };
