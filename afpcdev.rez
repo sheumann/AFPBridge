@@ -279,7 +279,7 @@ resource rPString(useLargeReadsItem,noCrossBank) { "Use Large Reads" };
 resource rMenuItem (useLargeWritesItem) {
     useLargeWritesItem,                     /* menu item ID */
     "","",
-    $12,
+    0,
     refIsResource*itemTitleRefShift,
     useLargeWritesItem                      /* menu item title ref */
 };

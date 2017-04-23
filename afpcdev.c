@@ -115,7 +115,7 @@ char zoneBuf[ZONE_MAX + 1];
 char AFPOverTCPZone[] = "AFP over TCP";
 
 /* Default flags for AFP over TCP connections */
-unsigned int flags = fLargeReads | fLargeWrites;
+unsigned int flags = fLargeReads;
 
 void fillEasyMountRec(char *server, char *zone, char *volume, char *user,
                       char *password, char *volpass)
