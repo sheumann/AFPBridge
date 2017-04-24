@@ -7,6 +7,7 @@
 #include <desk.h>
 #include <orca.h>
 #include <gsos.h>
+#include <scheduler.h>
 #include <string.h>
 #include "installcmds.h"
 #include "aspinterface.h"
@@ -16,6 +17,8 @@ const char bootInfoString[] = "AFPBridge             v1.0b1";
 LongWord version = 0x01006001;      /* in rVersion format */
 
 const char versionMessageString[] = "\pSTH~AFPBridge~Version~";
+
+const char requestNameString[] = "\pTCP/IP~STH~AFPBridge~";
 
 typedef struct VersionMessageRec {
     Word blockLen;
@@ -28,6 +31,7 @@ extern void resetRoutine(void);
 
 void pollTask(void);
 void notificationProc(void);
+static pascal Word requestProc(Word reqCode, Long dataIn, Long dataOut);
 
 static struct RunQRec {
     Long reserved1;
@@ -50,6 +54,8 @@ static struct NotificationProcRec {
 
 #define SoftResetPtr ((LongWord *)0xE11010)
 extern LongWord oldSoftReset;
+
+#define busyFlagPtr ((Byte*)0xE100FF)
 
 #define JML 0x5C
 
@@ -126,6 +132,8 @@ int main(void) {
     addNotifyProcRec.procPointer = (ProcPtr)&notificationProcRec;
     AddNotifyProcGS(&addNotifyProcRec);
     
+    AcceptRequests(requestNameString, userid(), &requestProc);
+    
     oldSoftReset = *SoftResetPtr;
     *SoftResetPtr = ((LongWord)&resetRoutine << 8) | JML;
     
@@ -167,9 +175,46 @@ void notificationProc(void) {
     IncBusyFlag();
     stateReg = ForceRomIn();
 
-    CloseAllSessions(0);
+    CloseAllSessions(0, TRUE);
 
     RestoreStateReg(stateReg);
     DecBusyFlag();
 }
+#pragma databank 0
+
+#pragma databank 1
+void handleDisconnect(void) {
+    Word stateReg;
+
+    IncBusyFlag();
+    stateReg = ForceRomIn();
+
+    CloseAllSessions(aspAttenClosed, FALSE);
+
+    RestoreStateReg(stateReg);
+    DecBusyFlag();
+}
+#pragma databank 0
+
+/*
+ * Request procedure called by Marinetti with its notifications.
+ * If the network has gone down, we immediately close all sessions.
+ * We check the busy flag to avoid doing this within our code
+ * (which runs with the busy flag set), although I don't think that
+ * can really happen with current versions of Marinetti.
+ */
+#pragma databank 1
+#pragma toolparms 1
+static pascal Word requestProc(Word reqCode, Long dataIn, Long dataOut) {
+    if (reqCode == TCPIPSaysNetworkDown) {
+        if (*busyFlagPtr) {
+            SchAddTask(&handleDisconnect);
+        } else {
+            handleDisconnect();
+        }
+    }
+    
+    return 0;
+}
+#pragma toolparms 0
 #pragma databank 0

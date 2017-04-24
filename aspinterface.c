@@ -97,7 +97,7 @@ top:
 
         for (i = 0; i < MAX_SESSIONS; i++) {
             if (sessionTbl[i].dsiStatus == needsReset)
-                EndASPSession(&sessionTbl[i], 0);
+                EndASPSession(&sessionTbl[i], 0, TRUE);
         }
         for (i = 0; i < MAX_SESSIONS; i++) {
             if (sessionTbl[i].dsiStatus == unused)
@@ -150,6 +150,11 @@ top:
         
         sess = &sessionTbl[commandRec->refNum - SESSION_NUM_START];
         
+        if (sess->dsiStatus == unused) {
+            CompleteASPCommand(commandRec, aspRefErr);
+            goto ret;
+        }
+
         if (sess->commandPending) {
             if (commandRec->command != aspCloseSessionCommand) {
                 CompleteASPCommand(commandRec, aspSessNumErr);
@@ -419,7 +424,7 @@ void FlagFatalError(Session *sess, Word errorCode) {
         CompleteCurrentASPCommand(sess, errorCode);
     }
     
-    EndASPSession(sess, aspAttenTimeout);
+    EndASPSession(sess, aspAttenTimeout, TRUE);
 }
 
 
@@ -491,7 +496,7 @@ void CompleteCurrentASPCommand(Session *sess, Word result) {
     if (sess->spCommandRec->command == aspGetStatusCommand 
         || sess->spCommandRec->command == aspCloseSessionCommand)
     {
-        EndASPSession(sess, 0);
+        EndASPSession(sess, 0, TRUE);
     } else {
         sess->commandPending = FALSE;
         if (sess->dsiStatus != error) {
@@ -517,12 +522,13 @@ static void CompleteASPCommand(SPCommandRec *commandRec, Word result) {
 }
 
 
-void EndASPSession(Session *sess, Byte attentionCode) {
+void EndASPSession(Session *sess, Byte attentionCode, Boolean doLogout) {
     if (attentionCode != 0) {
         CallAttentionRoutine(sess, attentionCode, 0);
     }
     
-    EndTCPConnection(sess);
+    if (doLogout)
+        EndTCPConnection(sess);
     memset(sess, 0, sizeof(*sess));
 }
 
@@ -562,22 +568,23 @@ void PollAllSessions(void) {
             break;
         
         case needsReset:
-            EndASPSession(&sessionTbl[i], 0);
+            EndASPSession(&sessionTbl[i], 0, TRUE);
             break;
         }
     }
 }
 
 /* Close all sessions -- used when we're shutting down */
-void CloseAllSessions(Byte attentionCode) {
+void CloseAllSessions(Byte attentionCode, Boolean doLogout) {
     unsigned int i;
     Session *sess;
 
     for (i = 0; i < MAX_SESSIONS; i++) {
         sess = &sessionTbl[i];
         if (sess->dsiStatus != unused) {
-            DoSPCloseSession(sess);
-            EndASPSession(sess, attentionCode);
+            if (doLogout)
+                DoSPCloseSession(sess);
+            EndASPSession(sess, attentionCode, doLogout);
         }
     }
 }

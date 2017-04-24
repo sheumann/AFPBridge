@@ -158,7 +158,7 @@ top:
             SendDSIMessage(sess, &attentionReplyRec, NULL, NULL);
             CallAttentionRoutine(sess, aspAttenNormal, sess->attentionCode);
         } else if (sess->reply.command == DSICloseSession) {
-            EndASPSession(sess, aspAttenClosed);
+            EndASPSession(sess, aspAttenClosed, TRUE);
             return;
         } else if (sess->reply.command == DSITickle) {
             tickleRequestRec.requestID = htons(sess->nextRequestID++);

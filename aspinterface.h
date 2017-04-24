@@ -18,10 +18,10 @@ LongWord DispatchASPCommand(SPCommandRec *commandRec);
 void CompleteCurrentASPCommand(Session *sess, Word result);
 void FinishASPCommand(Session *sess);
 void FlagFatalError(Session *sess, Word errorCode);
-void EndASPSession(Session *sess, Byte attentionCode);
+void EndASPSession(Session *sess, Byte attentionCode, Boolean doLogout);
 void CallAttentionRoutine(Session *sess, Byte attenType, Word atten);
 void PollAllSessions(void);
-void CloseAllSessions(Byte attentionCode);
+void CloseAllSessions(Byte attentionCode, Boolean doLogout);
 void ResetAllSessions(void);
 
 #endif
