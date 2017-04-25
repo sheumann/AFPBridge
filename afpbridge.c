@@ -12,6 +12,7 @@
 #include "installcmds.h"
 #include "aspinterface.h"
 #include "asmglue.h"
+#include "cmdproc.h"
 
 const char bootInfoString[] = "AFPBridge             v1.0b1";
 LongWord version = 0x01006001;      /* in rVersion format */
@@ -69,6 +70,7 @@ int main(void) {
     FSTInfoRecGS fstInfoRec;
     NotifyProcRecGS addNotifyProcRec;
     VersionMessageRec versionMessageRec;
+    PFIHooksRec pfiHooksRec;
 
     /*
      * Check for presence of AppleShare FST.  We error out and unload
@@ -136,6 +138,21 @@ int main(void) {
     
     oldSoftReset = *SoftResetPtr;
     *SoftResetPtr = ((LongWord)&resetRoutine << 8) | JML;
+    
+    /*
+     * Install our own attention vector that bypasses the one in the
+     * ATalk driver in problematic cases (for session number > 8).
+     */
+    pfiHooksRec.async = 0;
+    pfiHooksRec.command = pfiHooksCommand;
+    pfiHooksRec.hookFlag = 0;      /* get GS/OS hooks */
+    _CALLAT(&pfiHooksRec);
+    if (pfiHooksRec.result == 0) {
+        jmlOldAttentionVec = (pfiHooksRec.attentionVector << 8) | JML;
+        pfiHooksRec.attentionVector = (LongWord)&attentionVec;
+        pfiHooksRec.hookFlag = pfiHooksSetHooks;    /* set GS/OS hooks */
+        _CALLAT(&pfiHooksRec);
+    }
     
     return;
 

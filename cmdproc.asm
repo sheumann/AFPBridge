@@ -1,6 +1,8 @@
 	case	on
 	mcopy	cmdproc.macros
 
+SESSION_NUM_START gequ $F8
+
 RamGoComp gequ	$E1100C
 RamForbid gequ	$E11018
 RamPermit gequ	$E1101C
@@ -128,3 +130,29 @@ skip	jsl	RamPermit
 	plb
 	rtl
 	end
+
+* Replacement attention vector to be called from PFI.
+* This calls the previous attention vector (from the ATalk driver) for ASP
+* sessions (numbered 1-8), but not for the higher-numbered DSI sessions.
+* This is needed because ATalk's attention vector is hard-coded for session
+* numbers 1-8 only and trashes memory when called with higher numbers.
+attentionVec start
+	phd
+	phy
+	phx
+	tsc
+	tcd
+	lda	[1]
+	plx
+	ply
+	pld
+	
+	and	#$00FF
+	cmp	#SESSION_NUM_START
+	bge	skip
+jmlOldAttentionVec entry
+	jml	attentionVec	;to be changed to old attention vec
+skip	clc
+	rtl
+	end
+

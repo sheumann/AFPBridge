@@ -13,4 +13,7 @@ void pfiListSessions2CmdProc(void);
 extern LongWord jslOldPFIListSessions2;
 void CallCompletionRoutine(void *);
 
+extern void attentionVec(void);
+extern LongWord jmlOldAttentionVec;
+
 #endif
