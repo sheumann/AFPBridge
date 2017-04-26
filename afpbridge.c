@@ -30,6 +30,7 @@ typedef struct VersionMessageRec {
 extern Word *unloadFlagPtr;
 extern void resetRoutine(void);
 
+void PatchAttentionVector(void);
 void pollTask(void);
 void notificationProc(void);
 static pascal Word requestProc(Word reqCode, Long dataIn, Long dataOut);
@@ -42,6 +43,9 @@ static struct RunQRec {
     Byte jml;
     void (*proc)(void);
 } runQRec;
+
+#define NOTIFY_SHUTDOWN    0x20
+#define NOTIFY_GSOS_SWITCH 0x04
 
 static struct NotificationProcRec {
     Long reserved1;
@@ -70,7 +74,6 @@ int main(void) {
     FSTInfoRecGS fstInfoRec;
     NotifyProcRecGS addNotifyProcRec;
     VersionMessageRec versionMessageRec;
-    PFIHooksRec pfiHooksRec;
 
     /*
      * Check for presence of AppleShare FST.  We error out and unload
@@ -127,7 +130,7 @@ int main(void) {
     AddToRunQ((Pointer)&runQRec);
     
     notificationProcRec.Signature = 0xA55A;
-    notificationProcRec.Event_flags = 0x20; /* shutdown */
+    notificationProcRec.Event_flags = NOTIFY_SHUTDOWN | NOTIFY_GSOS_SWITCH;
     notificationProcRec.jml = JML;
     notificationProcRec.proc = notificationProc;
     addNotifyProcRec.pCount = 1;
@@ -135,30 +138,36 @@ int main(void) {
     AddNotifyProcGS(&addNotifyProcRec);
     
     AcceptRequests(requestNameString, userid(), &requestProc);
-    
+
     oldSoftReset = *SoftResetPtr;
     *SoftResetPtr = ((LongWord)&resetRoutine << 8) | JML;
     
-    /*
-     * Install our own attention vector that bypasses the one in the
-     * ATalk driver in problematic cases (for session number > 8).
-     */
-    pfiHooksRec.async = 0;
-    pfiHooksRec.command = pfiHooksCommand;
-    pfiHooksRec.hookFlag = 0;      /* get GS/OS hooks */
-    _CALLAT(&pfiHooksRec);
-    if (pfiHooksRec.result == 0) {
-        jmlOldAttentionVec = (pfiHooksRec.attentionVector << 8) | JML;
-        pfiHooksRec.attentionVector = (LongWord)&attentionVec;
-        pfiHooksRec.hookFlag = pfiHooksSetHooks;    /* set GS/OS hooks */
-        _CALLAT(&pfiHooksRec);
-    }
+    PatchAttentionVector();
     
     return;
 
 error:
     setUnloadFlag();
     return;
+}
+
+/*
+ * Install our own attention vector that bypasses the one in the
+ * ATalk driver in problematic cases (for session number > 8).
+ */
+void PatchAttentionVector(void) {
+    PFIHooksRec pfiHooksRec;
+
+    pfiHooksRec.async = 0;
+    pfiHooksRec.command = pfiHooksCommand;
+    pfiHooksRec.hookFlag = 0;      /* get hooks */
+    _CALLAT(&pfiHooksRec);
+    if (pfiHooksRec.result == 0) {
+        jmlOldAttentionVec = (pfiHooksRec.attentionVector << 8) | JML;
+        pfiHooksRec.attentionVector = (LongWord)&attentionVec;
+        pfiHooksRec.hookFlag = pfiHooksSetHooks;    /* set hooks, GS/OS mode */
+        _CALLAT(&pfiHooksRec);
+    }
 }
 
 
@@ -180,10 +189,13 @@ void pollTask(void) {
 
 
 /*
- * Notification procedure called at shutdown time.
- * We try to notify the servers that we're closing the connections.
- * This only works if Marinetti is still active, i.e. if its own
- * shutdown notification procedure hasn't run yet.
+ * Notification procedure called at shutdown time or when switching to GS/OS.
+ *
+ * We try to notify the servers that we're closing the connections at shutdown.
+ * This only works if Marinetti is still active, i.e. if its own shutdown
+ * notification procedure hasn't run yet.
+ *
+ * When switching back from P8, we reinstall our attention vector patch.
  */
 #pragma databank 1
 void notificationProc(void) {
@@ -192,7 +204,12 @@ void notificationProc(void) {
     IncBusyFlag();
     stateReg = ForceRomIn();
 
-    CloseAllSessions(0, TRUE);
+    if (notificationProcRec.Event_code & NOTIFY_GSOS_SWITCH) {
+        PatchAttentionVector();
+    }
+    if (notificationProcRec.Event_code & NOTIFY_SHUTDOWN) {
+        CloseAllSessions(aspAttenClosed, TRUE);
+    }
 
     RestoreStateReg(stateReg);
     DecBusyFlag();
