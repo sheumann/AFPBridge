@@ -66,7 +66,7 @@ install: $(AFPBRIDGE_PROG) $(AFPMOUNTER_CDEV)
 
 .PHONY: chtyp
 chtyp:
-	chtyp -ttxt *.mk *.md *.txt
+	chtyp -ttxt *.mk *.md *.txt LICENSE
 	chtyp -lcc *.c *.h
 	chtyp -lasm *.asm *.macros
 	chtyp -lrez *.rez
