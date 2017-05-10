@@ -51,6 +51,8 @@ The general form of URLs supported for AFP connections over TCP/IP is:
 
     afp://[user[:password]@]server[:port]/volume
 
+The server can be specified using an IP address or host name.  A host name can only be used if the DNS server you are using can resolve it; other ways of naming systems on the local network are not supported.
+
 It is also possible to use the AFP Mounter control panel to connect to AFP servers over AppleTalk (not relying on AFPBridge).  The form of URLs for that is:
 
     afp:/at/[user[:password]@]server[:zone]/volume
