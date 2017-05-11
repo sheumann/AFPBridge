@@ -72,9 +72,22 @@ The current options will be saved in any alias, as well as applying to connectio
 
 * The __Ignore Errors Setting File Types__ option causes the IIgs to ignore errors when trying to set the ProDOS-style types of files on the server.  This allows the IIgs to write files to servers that do not support ProDOS-style file types (such as the one in old versions of Mac OS X) without being stopped by these errors.  Note that file types will not be correctly set when writing to such servers, even when using this option.
 
+It is also possible to mount AFP volumes from the command line in a shell.  For instructions on doing that, see [here][3].
+
+[3]: https://sheumann.github.io/AFPBridge/ShellMount
+
+
+Building AFPBridge
+------------------
+
+The full source code for AFPBridge is available [on GitHub][4].  For instructions on building it, see [here][5].
+
+[4]: https://github.com/sheumann/AFPBridge
+[5]: https://sheumann.github.io/AFPBridge/BUILDING
+
 
 Contact
 -------
-If you have questions, comments, bug reports, or feature requests, you can contact me at stephen.heumann@gmail.com or submit them to the [issues page][3] on GitHub.
+If you have questions, comments, bug reports, or feature requests, you can contact me at stephen.heumann@gmail.com or submit them to the [issues page][6] on GitHub.
 
-[3]: https://github.com/sheumann/AFPBridge/issues
+[6]: https://github.com/sheumann/AFPBridge/issues
