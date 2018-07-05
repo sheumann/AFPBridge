@@ -13,7 +13,8 @@ System Requirements
 -------------------
 * An Apple IIgs with AppleTalk enabled in the Control Panel (see below)
 * System 6.0.1 or later, with AppleTalk-related components installed (see below)
-* Marinetti (latest version recommended) and a compatible network interface
+* Marinetti ([version 3.0b9 or later][Marinetti] recommended for best performance)
+* A Marinetti-compatible network interface (such as an Ethernet card)
 
 Although AFPBridge uses TCP/IP rather than AppleTalk for networking, it relies on the AppleShare FST and related system components, and these are designed to work with AppleTalk.  Therefore, the system must be configured to use AppleTalk, and the AppleTalk-related components in the system software must be installed and enabled.
 
@@ -22,6 +23,8 @@ If you do not already have the necessary components installed, you can use the "
 In order for the AppleShare FST and the components it requires to load and be usable, it is also necessary to configure the system's slots (in the Slots section of the Control Panel) to enable AppleTalk.  In a ROM 01 system, slot 7 must be set to "AppleTalk" and slot 1 or 2 must be set to "Your Card."  In a ROM 3 system, slot 1 or 2 must be set to "AppleTalk."  Note that it is _not_ actually necessary for the system to be connected to an AppleTalk network (although it may be).
 
 If you wish to use AFPBridge in an emulator, it must be capable of running with AppleTalk enabled as discussed above, although it need not be capable of actually communicating over AppleTalk networks.  GSplus, GSport, and perhaps other KEGS-based emulators should work.  Sweet16 did not work in my testing, because the system hangs during boot-up when AppleTalk is enabled.
+
+[Marinetti]: http://a2retrosystems.com/Marinetti.htm
 
 
 Server Compatibility
