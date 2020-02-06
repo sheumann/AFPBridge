@@ -144,11 +144,10 @@ int main(void) {
     
     PatchAttentionVector();
     
-    return;
+    return 0;
 
 error:
     setUnloadFlag();
-    return;
 }
 
 /*

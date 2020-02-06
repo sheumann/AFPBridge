@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
     
     if (argc < 4 || argc > 5) {
         fprintf(stderr, "Usage: afpmounter name zone volume [volPassword]\n");
-        return;
+        return EXIT_FAILURE;
     }
     
     object = argv[1];
@@ -52,13 +52,13 @@ int main(int argc, char **argv) {
     zone = argv[2];
     if (strlen(object) > ENTITY_FIELD_MAX || strlen(zone) > ENTITY_FIELD_MAX) {
         fprintf(stderr, "Entity name too long (max 32 chars)\n");
-        return;
+        return EXIT_FAILURE;
     }
 
     count = strlen(argv[3]);
     if (count > VOL_NAME_MAX) {
         fprintf(stderr, "Volume name too long\n");
-        return;
+        return EXIT_FAILURE;
     }
     volName[0] = count;
     strncpy(volName+1, argv[3], count);
@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
         count = strlen(argv[4]);
         if (count > VOL_PASSWORD_MAX) {
             fprintf(stderr, "Volume password too long\n");
-            return;
+            return EXIT_FAILURE;
         }
         strncpy(volPassword, argv[4], count);
     }
@@ -104,12 +104,12 @@ int main(int argc, char **argv) {
     atRetCode = _CALLAT(&lookupNameRec);
     if (atRetCode != 0) {
         fprintf(stderr, "NBP lookup error: %04x\n", lookupNameRec.result);
-        return;
+        return EXIT_FAILURE;
     }
     
     if (lookupNameRec.actualMatch == 0) {
         fprintf(stderr, "The specified server could not be found\n");
-        return;
+        return EXIT_FAILURE;
     }
     
 #if 0
@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Login failure: %04x\n", login2Rec.result);
         if (login2Rec.result == pfiLoginContErr)
             goto logout_and_exit;
-        return;
+        return EXIT_FAILURE;
     }
     
     mountVolRec.async = 0;
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
     }
     
     /* success - leave the volume mounted */
-    return;
+    return EXIT_SUCCESS;
     
 logout_and_exit:
     logoutRec.async = 0;
@@ -179,5 +179,5 @@ logout_and_exit:
     logoutRec.sessRefID = login2Rec.sessRefID;
 
     _CALLAT(&logoutRec);
-    return;
+    return EXIT_FAILURE;
 }

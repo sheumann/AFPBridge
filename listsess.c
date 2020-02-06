@@ -24,7 +24,7 @@ int main(void)
     i = _CALLAT(&listSessions2Rec);
     if (i != 0) {
         fprintf(stderr, "Error %04x\n", listSessions2Rec.result);
-        return;
+        return 1;
     }
     
     for (i = 0; i < listSessions2Rec.entriesRtn; i++) {
